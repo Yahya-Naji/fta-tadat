@@ -1,0 +1,12 @@
+node_modules
+.next
+.env.local
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.DS_Store
+data/fta-aggregates/files/
+
+# Allow the seeded read-only DB to be committed for Vercel deploys
+!data/tadat-fta.db

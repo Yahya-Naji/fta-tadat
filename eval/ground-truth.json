@@ -1,0 +1,40 @@
+{
+  "description": "Expected TADAT scores derived from the seeded conditions in data/seed/fta-anchors.ts. The eval harness verifies that the SQL aggregations + agent output match these.",
+  "seed_run": {
+    "rng_seed": 20260505,
+    "taxpayers": 1024,
+    "monthsOfHistory": 12
+  },
+  "expected": {
+    "POA1": {
+      "P1-1-1": "B",
+      "_P1-1-2_note": "Worst-of [duplicates B, missing-contact C, dormant-mismatch B] → C. The ~6% missing email/phone (62 of 1024) drives this down by design.",
+      "P1-1-2": "C",
+      "P1-2": "C",
+      "aggregate": "C"
+    },
+    "POA4": {
+      "P4-13-1_CT": { "expected_rate_pct_min": 70, "expected_rate_pct_max": 80, "expected_score": "B" },
+      "P4-13-3_VAT": { "expected_rate_pct_min": 84, "expected_rate_pct_max": 90, "expected_score": "B" },
+      "P4-13-4_EXCISE": { "expected_rate_pct_min": 90, "expected_rate_pct_max": 96, "expected_score": "A" },
+      "P4-15": { "expected_rate_pct_min": 90, "expected_rate_pct_max": 96, "expected_score": "A" },
+      "P4-14_practices": {
+        "follow_up_within_days_max": 14,
+        "expected_score": "B"
+      },
+      "p4_13_aggregate": "B+",
+      "aggregate": "B"
+    },
+    "POA5": {
+      "P5-16": { "expected_rate_pct_min": 75, "expected_rate_pct_max": 82, "expected_score": "A" },
+      "P5-18-1_VAT_n": { "expected_rate_pct_min": 86, "expected_rate_pct_max": 92, "expected_score": "B" },
+      "P5-18-2_VAT_v": { "expected_rate_pct_min": 86, "expected_rate_pct_max": 92, "expected_score": "B" },
+      "P5-19-1": { "expected_ratio_pct_min": 12, "expected_ratio_pct_max": 18, "expected_score": "B" },
+      "P5-19-2": { "expected_ratio_pct_min": 4, "expected_ratio_pct_max": 8, "expected_score": "B" },
+      "P5-19-3": { "expected_ratio_pct_min": 28, "expected_ratio_pct_max": 45, "expected_score": "B" },
+      "p5_18_aggregate": "B",
+      "p5_19_aggregate": "B",
+      "aggregate": "B"
+    }
+  }
+}

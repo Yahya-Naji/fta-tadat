@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "app/api/agents/[id]/run/route.ts": { "maxDuration": 60 },
+    "app/api/agents/[id]/preview/route.ts": { "maxDuration": 30 },
+    "app/api/upload/run/route.ts": { "maxDuration": 60 },
+    "app/api/dashboard/snapshot/route.ts": { "maxDuration": 30 }
+  }
+}

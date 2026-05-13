@@ -1,0 +1,213 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Foreground / background CSS vars ─────────────────────────────────────
+ * The dark theme is the default at SSR; the inline script in
+ * app/layout.tsx applies `.dark` from localStorage before paint.
+ * Light theme is the absence of `.dark` (we treat .light as opt-in).
+ */
+:root {
+  --foreground-rgb: 17, 24, 39;       /* gray-900 */
+  --background-rgb: 249, 250, 251;    /* gray-50 */
+}
+
+.dark {
+  --foreground-rgb: 234, 234, 234;
+  --background-rgb: 40, 44, 52;       /* #282C34 */
+}
+
+html, body {
+  font-family: var(--font-body), 'Inter', 'SF Pro', system-ui, sans-serif;
+  color: rgb(var(--foreground-rgb));
+  background: rgb(var(--background-rgb));
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+/* ─── Glass panel — Quanterra brand ───────────────────────────────────── */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(99, 102, 241, 0.12);
+  border-radius: 1.5rem;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 1px 3px rgba(15, 23, 42, 0.06);
+  transition: border-color 200ms ease, background 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+}
+.glass-panel:hover {
+  border-color: rgba(99, 102, 241, 0.28);
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.08),
+    0 4px 6px -2px rgba(0, 0, 0, 0.06);
+}
+.dark .glass-panel {
+  background: rgba(30, 33, 40, 0.95);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.3),
+    0 2px 4px -1px rgba(0, 0, 0, 0.2);
+}
+.dark .glass-panel:hover {
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.4),
+    0 4px 6px -2px rgba(0, 0, 0, 0.3);
+}
+
+/* ─── Gradient text — indigo → violet → purple ────────────────────────── */
+.gradient-text {
+  background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+.dark .gradient-text {
+  background: linear-gradient(90deg, #818CF8 0%, #A78BFA 50%, #C084FC 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Page accent bar — 3px at top of inner pages */
+.page-accent-bar {
+  height: 3px;
+  background: linear-gradient(90deg, #00A89D 0%, #6366F1 50%, #8B5CF6 100%);
+}
+
+/* Dashboard banner — purple radial gradient with subtle dot pattern */
+.dashboard-banner {
+  background: linear-gradient(135deg, #312e81 0%, #4c1d95 40%, #5b21b6 70%, #6d28d9 100%);
+  position: relative;
+  overflow: hidden;
+}
+.dashboard-banner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(0, 168, 157, 0.20), transparent 45%),
+    radial-gradient(circle at 80% 70%, rgba(99, 102, 241, 0.30), transparent 50%);
+  pointer-events: none;
+}
+.dashboard-banner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+  pointer-events: none;
+  mask-image: linear-gradient(180deg, black 0%, transparent 80%);
+}
+
+/* ─── Status colors — quartet ─────────────────────────────────────────── */
+.status-conformant { background-color: rgba(0, 200, 150, 0.10); color: #00C896; border-color: rgba(0, 200, 150, 0.30); }
+.status-minor      { background-color: rgba(255, 159, 67, 0.10); color: #FF9F43; border-color: rgba(255, 159, 67, 0.30); }
+.status-major      { background-color: rgba(255, 75, 92, 0.10);  color: #FF4B5C; border-color: rgba(255, 75, 92, 0.30); }
+.status-ofi        { background-color: rgba(108, 125, 255, 0.10);color: #6C7DFF; border-color: rgba(108, 125, 255, 0.30); }
+
+/* ─── TADAT score badges (legacy compatible — both themes) ───────────── */
+.score-badge   { @apply inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold; }
+.score-badge-a { @apply bg-emerald-500/15 text-emerald-700 border border-emerald-500/30 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/40; }
+.score-badge-b { @apply bg-blue-500/15    text-blue-700    border border-blue-500/30    dark:bg-blue-500/20    dark:text-blue-300    dark:border-blue-500/40; }
+.score-badge-c { @apply bg-amber-500/15   text-amber-700   border border-amber-500/30   dark:bg-amber-500/20   dark:text-amber-300   dark:border-amber-500/40; }
+.score-badge-d { @apply bg-red-500/15     text-red-700     border border-red-500/30     dark:bg-red-500/20     dark:text-red-300     dark:border-red-500/40; }
+
+/* ─── Animations (CSS keyframes — no framer-motion required) ──────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+@keyframes ping {
+  75%, 100% { transform: scale(2.5); opacity: 0; }
+}
+
+.animate-fade-up         { animation: fade-up 0.6s ease-out both; }
+.animate-fade-up-delay-1 { animation: fade-up 0.6s ease-out 0.10s both; }
+.animate-fade-up-delay-2 { animation: fade-up 0.6s ease-out 0.20s both; }
+.animate-fade-up-delay-3 { animation: fade-up 0.6s ease-out 0.35s both; }
+.animate-fade-up-delay-4 { animation: fade-up 0.6s ease-out 0.50s both; }
+.animate-fade-up-delay-5 { animation: fade-up 0.6s ease-out 0.65s both; }
+.animate-fade-in         { animation: fade-in 0.5s ease-out both; }
+.animate-slide-in        { animation: slide-in 0.3s ease-out both; }
+
+.shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+  animation: shimmer 1.6s infinite;
+}
+
+.pulse-dot { position: relative; }
+.pulse-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: inherit;
+  animation: ping 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+  opacity: 0.6;
+}
+
+/* ─── Workflow pipeline connectors ────────────────────────────────────── */
+.workflow-step { position: relative; }
+.workflow-step::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -28px;
+  width: 24px;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(99, 102, 241, 0.6), rgba(139, 92, 246, 0.2));
+  transform: translateY(-50%);
+}
+.workflow-step:last-child::after { display: none; }
+
+/* ─── Scroll reveal (IntersectionObserver-friendly) ───────────────────── */
+.scroll-hidden        { opacity: 0; transform: translateY(32px);  transition: opacity 0.65s ease, transform 0.65s ease; }
+.scroll-hidden-left   { opacity: 0; transform: translateX(-32px); transition: opacity 0.65s ease, transform 0.65s ease; }
+.scroll-hidden-right  { opacity: 0; transform: translateX(32px);  transition: opacity 0.65s ease, transform 0.65s ease; }
+.scroll-hidden-scale  { opacity: 0; transform: scale(0.93);       transition: opacity 0.65s ease, transform 0.65s ease; }
+.scroll-visible       { opacity: 1; transform: translate(0,0) scale(1); }
+.scroll-delay-1 { transition-delay: 0.08s; }
+.scroll-delay-2 { transition-delay: 0.16s; }
+.scroll-delay-3 { transition-delay: 0.24s; }
+.scroll-delay-4 { transition-delay: 0.32s; }
+.scroll-delay-5 { transition-delay: 0.40s; }
+
+/* ─── Theme-aware utility classes (used across legacy KarimView etc.) ─── */
+@layer components {
+  .q-surface      { @apply bg-white dark:bg-white/[0.03]; }
+  .q-surface-2    { @apply bg-gray-50 dark:bg-white/[0.05]; }
+  .q-surface-3    { @apply bg-gray-100 dark:bg-white/[0.07]; }
+  .q-input        { @apply bg-gray-50 dark:bg-black/20; }
+  .q-border       { @apply border-gray-200 dark:border-white/10; }
+  .q-border-soft  { @apply border-gray-200/70 dark:border-white/5; }
+  .q-divide       { @apply divide-gray-200 dark:divide-white/5; }
+  .q-text         { @apply text-gray-900 dark:text-white; }
+  .q-text-2       { @apply text-gray-700 dark:text-gray-300; }
+  .q-text-3       { @apply text-gray-500 dark:text-gray-400; }
+  .q-text-4       { @apply text-gray-400 dark:text-gray-500; }
+  .q-row-hover    { @apply hover:bg-gray-50 dark:hover:bg-white/[0.05]; }
+}
+
+/* Disable transitions during theme change for perf */
+.theme-transitioning * { transition: none !important; }
+
+/* Tabular nums helper */
+.tabular-nums { font-variant-numeric: tabular-nums; }
