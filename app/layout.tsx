@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 
 // Body — Inter
 const inter = Inter({
@@ -59,7 +60,9 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <div id="main">{children}</div>
+        <WorkspaceProvider>
+          <div id="main">{children}</div>
+        </WorkspaceProvider>
       </body>
     </html>
   );

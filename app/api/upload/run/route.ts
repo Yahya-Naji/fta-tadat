@@ -72,7 +72,20 @@ function sse(event: string, data: unknown): string {
   return `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
 }
 
-export async function POST() {
+export async function POST(req: Request) {
+  // Body may include a `uploaded_file` payload parsed by /api/upload/parse —
+  // when present, agents include it in their LLM input so headlines reflect
+  // what the reviewer dropped, not just the Supabase aggregates.
+  let uploadedFile: unknown = null;
+  try {
+    const body = await req.json();
+    if (body && typeof body === "object") {
+      uploadedFile = (body as { uploaded_file?: unknown }).uploaded_file ?? null;
+    }
+  } catch {
+    // Empty / non-JSON body — that's fine, run with seeded data only
+  }
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       const encoder = new TextEncoder();
@@ -97,7 +110,7 @@ export async function POST() {
         await Promise.all(
           STAGE_ORDER.map(async (id) => {
             try {
-              const r = await runAgent(id);
+              const r = await runAgent(id, { uploadedFile });
               if (!r.ok || !r.parsed) {
                 send("stage_error", {
                   id,

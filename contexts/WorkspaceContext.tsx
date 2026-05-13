@@ -106,6 +106,13 @@ interface WorkspaceContextValue {
   setCurrentUser: (id: AgentId) => void;
   runMyAgent: () => Promise<void>;
   handoffToDownstream: () => void;
+  /** Hand off FROM a specific agent — used by department pages where the
+   *  agent on display isn't necessarily the currentUser. Optionally seeds
+   *  the agent's run state if the caller has fresh data from a local run. */
+  handoffFromAgent: (
+    fromId: AgentId,
+    snapshot?: { score?: string; outcome?: string },
+  ) => void;
   markNotificationRead: (id: string) => void;
   markAllRead: () => void;
   resetWorkspace: () => void;
@@ -289,6 +296,41 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     });
   }, [state.currentUser, state.agents, pushNotification]);
 
+  const handoffFromAgent = React.useCallback(
+    (fromId: AgentId, snapshot?: { score?: string; outcome?: string }) => {
+      const to = downstreamOf(fromId);
+      if (!to) return;
+      const fromPersona = PERSONAS[fromId];
+      const toPersona = PERSONAS[to];
+      setState((s) => {
+        const prev = s.agents[fromId];
+        return {
+          ...s,
+          agents: {
+            ...s.agents,
+            [fromId]: {
+              ...prev,
+              status: "handed_off",
+              handed_off_at: Date.now(),
+              score: snapshot?.score ?? prev.score,
+              outcome: snapshot?.outcome ?? prev.outcome,
+            },
+          },
+        };
+      });
+      const score = snapshot?.score ?? state.agents[fromId]?.score ?? "—";
+      const outcome = snapshot?.outcome ?? state.agents[fromId]?.outcome ?? "";
+      pushNotification({
+        kind: "handoff",
+        from_agent: fromId,
+        to_agent: to,
+        title: `${fromPersona.name} → ${toPersona.name}: it's on your desk`,
+        body: `${fromPersona.name} finished ${fromPersona.poaName.toLowerCase()} (POA ${fromPersona.poa}). Verdict: ${score}. ${outcome}`.trim(),
+      });
+    },
+    [state.agents, pushNotification],
+  );
+
   const markNotificationRead = React.useCallback((id: string) => {
     setState((s) => ({
       ...s,
@@ -333,6 +375,7 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
     setCurrentUser,
     runMyAgent,
     handoffToDownstream,
+    handoffFromAgent,
     markNotificationRead,
     markAllRead,
     resetWorkspace,

@@ -382,20 +382,44 @@ export interface AgentRunResult {
   parse_error: string | null;
 }
 
-export async function runAgent(workflow: WorkflowId): Promise<AgentRunResult> {
+/** Optional extras forwarded by the upload pipeline so the LLM sees the
+ *  reviewer's actual file alongside the Supabase aggregates. */
+export interface RunAgentOptions {
+  /** Parsed payload from /api/upload/parse — sheet headers + sample rows
+   *  + headline figures from whatever was dropped. Null if no upload. */
+  uploadedFile?: unknown;
+}
+
+export async function runAgent(
+  workflow: WorkflowId,
+  options: RunAgentOptions = {},
+): Promise<AgentRunResult> {
   const spec = WORKFLOWS[workflow];
   if (!spec) throw new Error(`Unknown workflow: ${workflow}`);
 
   const t0 = Date.now();
 
-  // 1. Pre-aggregate
-  const inputs = await spec.aggregator();
+  // 1. Pre-aggregate (Supabase)
+  const baseInputs = await spec.aggregator();
 
-  // 2. Build user message with the inputs
-  const userMessage = `${spec.instruction}\n\nINPUT JSON:\n${JSON.stringify(
+  // 1b. Compose with uploaded-file context if present
+  const inputs =
+    options.uploadedFile != null
+      ? {
+          supabase_aggregates: baseInputs,
+          uploaded_file: options.uploadedFile,
+        }
+      : baseInputs;
+
+  // 2. Build user message — when an uploaded file is present, tell the
+  // model explicitly that the figures should reflect the user's data.
+  const fileHint = options.uploadedFile
+    ? `\n\nNOTE: The reviewer just dropped a file (see uploaded_file in the input). When the file's headlines + sections clearly differ from the Supabase aggregates, prefer the uploaded figures for the business_outcome narrative and call out the source. The TADAT band scoring remains rubric-driven on whichever signal is most defensible.`
+    : "";
+  const userMessage = `${spec.instruction}${fileHint}\n\nINPUT JSON:\n${JSON.stringify(
     inputs,
     null,
-    2
+    2,
   )}\n\nReturn ONLY a valid JSON object — no markdown, no prose.`;
 
   // 3. Run the SDK agent

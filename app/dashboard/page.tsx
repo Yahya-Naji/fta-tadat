@@ -86,7 +86,9 @@ interface CaseState {
 
 export default function DashboardPage() {
   const [snap, setSnap] = useState<Snapshot | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  // Initialise null and set on mount — avoids SSR/CSR hydration mismatch
+  // when the server and client compute `new Date()` a tick apart.
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [cases, setCases] = useState<Record<AgentId, CaseState>>({
     registry: { status: "idle" },
     risk: { status: "idle" },
@@ -208,7 +210,7 @@ export default function DashboardPage() {
                 <div className="text-right">
                   <div className="text-xs text-white/40">Last refresh</div>
                   <div className="text-sm font-medium text-white/80 tabular-nums">
-                    {lastUpdated.toLocaleTimeString()}
+                    {lastUpdated ? lastUpdated.toLocaleTimeString() : "—"}
                   </div>
                 </div>
               </div>

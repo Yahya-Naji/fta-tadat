@@ -8,6 +8,7 @@
  */
 import * as React from "react";
 import { ChevronDown, UserCircle, Check } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
 
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { PERSONA_LIST, PERSONAS, type AgentId } from "@/lib/personas";
@@ -17,6 +18,8 @@ export function UserSwitcher() {
   const { state, setCurrentUser, isHydrated } = useWorkspace();
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement | null>(null);
+  const router = useRouter();
+  const pathname = usePathname();
 
   React.useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -32,6 +35,11 @@ export function UserSwitcher() {
   function pick(id: AgentId) {
     setCurrentUser(id);
     setOpen(false);
+    // If we're on an /agents/[x] page, navigate to the new persona's
+    // department page so the URL + page content follow the switch.
+    if (pathname?.startsWith("/agents/")) {
+      router.push(`/agents/${id}`);
+    }
   }
 
   return (

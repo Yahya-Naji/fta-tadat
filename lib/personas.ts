@@ -32,6 +32,10 @@ export interface Persona {
   accentBorder: string;
   /** Lucide icon name (resolved by component) */
   icon: "Database" | "ShieldAlert" | "Sparkles" | "FileCheck2" | "Wallet";
+  /** Hot-linked portrait URL. randomuser.me serves CC-licensed portraits for
+   *  demo / test use. Swap by saving an image to `public/personas/{id}.jpg`
+   *  and changing this value to `/personas/{id}.jpg`. */
+  photoUrl: string;
 }
 
 export const PERSONAS: Record<AgentId, Persona> = {
@@ -50,6 +54,7 @@ export const PERSONAS: Record<AgentId, Persona> = {
     accentText: "text-indigo-300",
     accentBorder: "border-indigo-500/40",
     icon: "Database",
+    photoUrl: "https://randomuser.me/api/portraits/women/68.jpg",
   },
   risk: {
     id: "risk",
@@ -66,6 +71,7 @@ export const PERSONAS: Record<AgentId, Persona> = {
     accentText: "text-rose-300",
     accentBorder: "border-rose-500/40",
     icon: "ShieldAlert",
+    photoUrl: "https://randomuser.me/api/portraits/men/32.jpg",
   },
   service: {
     id: "service",
@@ -82,6 +88,7 @@ export const PERSONAS: Record<AgentId, Persona> = {
     accentText: "text-fuchsia-300",
     accentBorder: "border-fuchsia-500/40",
     icon: "Sparkles",
+    photoUrl: "https://randomuser.me/api/portraits/women/44.jpg",
   },
   filing: {
     id: "filing",
@@ -98,6 +105,7 @@ export const PERSONAS: Record<AgentId, Persona> = {
     accentText: "text-cyan-300",
     accentBorder: "border-cyan-500/40",
     icon: "FileCheck2",
+    photoUrl: "https://randomuser.me/api/portraits/men/75.jpg",
   },
   payments: {
     id: "payments",
@@ -114,6 +122,7 @@ export const PERSONAS: Record<AgentId, Persona> = {
     accentText: "text-emerald-300",
     accentBorder: "border-emerald-500/40",
     icon: "Wallet",
+    photoUrl: "https://randomuser.me/api/portraits/women/79.jpg",
   },
 };
 

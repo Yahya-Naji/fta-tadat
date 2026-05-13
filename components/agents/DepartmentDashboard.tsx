@@ -53,6 +53,11 @@ import { RiskHeatmap } from "@/components/agents/charts/RiskHeatmap";
 import { EmirateDonut } from "@/components/charts/EmirateDonut";
 import { ArrearsAgingStrip } from "@/components/charts/ArrearsAgingStrip";
 import { Gauge } from "@/components/charts/Gauge";
+import { UserSwitcher } from "@/components/workspace/UserSwitcher";
+import { NotificationBell } from "@/components/workspace/NotificationBell";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { downstreamOf } from "@/lib/workflow/types";
+import { ArrowRight } from "lucide-react";
 
 interface AgentRunResp {
   success: boolean;
@@ -92,6 +97,16 @@ interface DepartmentDashboardProps {
 
 export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
   const persona = PERSONAS[stage.id];
+  const { state: wsState, setCurrentUser } = useWorkspace();
+
+  // Sync URL → workspace currentUser when the user navigates directly to a
+  // department (so the switcher, notifications, and intro fire for the
+  // persona whose page we're on).
+  React.useEffect(() => {
+    if (wsState.currentUser !== stage.id) {
+      setCurrentUser(stage.id);
+    }
+  }, [stage.id, wsState.currentUser, setCurrentUser]);
 
   const [run, setRun] = React.useState<AgentRunResp | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -103,6 +118,11 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
   const [picked, setPicked] = React.useState<PickedFile | null>(() =>
     defaultSampleFor(stage.id),
   );
+  /** Parsed contents of an uploaded (non-sample) file. Lets the dataset
+   *  preview show real rows + apply heuristic red-flagging. */
+  const [uploadedPreview, setUploadedPreview] =
+    React.useState<DeptSamplePreview | null>(null);
+  const [parsingUpload, setParsingUpload] = React.useState(false);
 
   // Pull pre-aggregate inputs + snapshot on mount
   React.useEffect(() => {
@@ -173,27 +193,28 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
 
       {/* Top bar */}
       <header className="border-b border-gray-200/60 bg-white/80 backdrop-blur dark:border-white/5 dark:bg-[#1e2128]/80 sticky top-0 z-30">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-6">
-          <div className="flex items-center gap-4">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 md:px-6 gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <Link
-              href="/desk"
-              className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:border-white/10 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-white"
+              href="/"
+              className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:border-white/10 dark:bg-white/5 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-white shrink-0"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
-              Desk
+              Home
             </Link>
             <QTaskWordmark />
             <span className="hidden md:inline text-gray-300 dark:text-white/20">|</span>
             <div className="hidden md:flex items-center gap-2">
               <span className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-500 dark:text-indigo-400">
-                Your department
-              </span>
-              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-mono">
-                · charts + chat + evidence
+                {persona.poaName}
               </span>
             </div>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2 shrink-0">
+            <NotificationBell />
+            <UserSwitcher />
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
@@ -214,13 +235,23 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
         <DepartmentSource
           stage={stage}
           picked={picked}
-          onPick={setPicked}
+          onPick={(p) => {
+            setPicked(p);
+            if (!p || p.source !== "drop") setUploadedPreview(null);
+          }}
+          onUploadedParsed={setUploadedPreview}
+          onParsingChange={setParsingUpload}
           disabled={loading}
         />
 
         {/* Sample-data preview — what's inside the picked file */}
         {picked && (
-          <SamplePreviewPanel stage={stage} picked={picked} />
+          <SamplePreviewPanel
+            stage={stage}
+            picked={picked}
+            uploadedPreview={uploadedPreview}
+            parsingUpload={parsingUpload}
+          />
         )}
 
         {/* Main 2-col grid */}
@@ -321,6 +352,17 @@ function DepartmentBanner({
   onRun: () => void;
 }) {
   const persona = PERSONAS[stage.id];
+  const { state: wsState, handoffFromAgent } = useWorkspace();
+  const downId = downstreamOf(stage.id);
+  const downPersona = downId ? PERSONAS[downId] : null;
+  const myWorkspaceState = wsState.agents[stage.id];
+  const handedOff = myWorkspaceState?.status === "handed_off";
+  const canHandoff = run?.success === true && downPersona !== null;
+
+  function onHandoff() {
+    if (!run?.success) return;
+    handoffFromAgent(stage.id, { score, outcome });
+  }
   return (
     <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700 p-7 md:p-8 shadow-2xl shadow-indigo-500/20 animate-fade-up">
       <div className="absolute -left-16 -top-16 h-56 w-56 rounded-full bg-white/5" />
@@ -331,21 +373,20 @@ function DepartmentBanner({
             <PersonaAvatar persona={persona} size={64} />
             <div className="min-w-0">
               <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-white/65 mb-1">
-                POA {stage.poa} · {stage.poa_name}
+                POA {stage.poa}
               </p>
               <h1 className="text-3xl md:text-[40px] font-bold tracking-tight text-white leading-tight">
-                Department of {persona.name}
+                {persona.poaName}
               </h1>
-              <p className="mt-1 text-sm text-white/80">{persona.role}</p>
+              <p className="mt-1.5 text-[13px] text-white/80">
+                Led by{" "}
+                <span className="font-semibold text-white">{persona.name}</span>
+                <span className="text-white/65"> · {persona.role}</span>
+              </p>
             </div>
           </div>
           <div className="flex flex-col items-end gap-3 shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-white/65">
-                Aggregate score
-              </span>
-              <ScoreBadge score={score} />
-            </div>
+            <BigScore score={score} />
             {run?.success === false && (
               <span className="inline-flex items-center gap-1 rounded-full border border-red-300/40 bg-red-300/10 px-2.5 py-1 text-[11px] text-red-200">
                 <AlertCircle className="h-3 w-3" />
@@ -385,6 +426,39 @@ function DepartmentBanner({
                 </>
               )}
             </button>
+
+            {/* Handover — appears once the run is successful */}
+            {downPersona && (
+              <>
+                {canHandoff && !handedOff && (
+                  <Link
+                    href={`/agents/${downId}`}
+                    onClick={onHandoff}
+                    className="inline-flex items-center gap-2 rounded-full border-2 border-white/40 bg-white/10 backdrop-blur-md px-5 py-2.5 text-sm font-bold text-white hover:bg-white/20 transition shadow-md shadow-black/20"
+                  >
+                    Hand over to {downPersona.name}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                )}
+                {handedOff && (
+                  <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/40 bg-emerald-300/15 px-4 py-2 text-[12px] font-semibold text-emerald-100">
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Handed off to {downPersona.name}
+                  </span>
+                )}
+                {!canHandoff && !handedOff && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-white/5 px-3 py-1.5 text-[11px] text-white/65">
+                    Run first to hand off → {downPersona.name}
+                  </span>
+                )}
+              </>
+            )}
+            {!downPersona && run?.success && (
+              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/40 bg-emerald-300/15 px-4 py-2 text-[12px] font-semibold text-emerald-100">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Lifecycle complete · {persona.name} is last
+              </span>
+            )}
           </div>
         </div>
 
@@ -420,6 +494,40 @@ function DepartmentBanner({
         </div>
       </div>
     </section>
+  );
+}
+
+// ─── BigScore ─ prominent aggregate-score block for the banner ────────────
+
+function BigScore({ score }: { score: string | undefined }) {
+  const letter = (score ?? "—").toString();
+  const head = letter.charAt(0).toUpperCase();
+  // Color the accent bar + label to match the TADAT band.
+  const band =
+    head === "A"
+      ? { bar: "bg-emerald-400", text: "text-emerald-300", label: "Excellent" }
+      : head === "B"
+        ? { bar: "bg-sky-400", text: "text-sky-300", label: "Broadly compliant" }
+        : head === "C"
+          ? { bar: "bg-amber-400", text: "text-amber-300", label: "Partial" }
+          : head === "D"
+            ? { bar: "bg-red-400", text: "text-red-300", label: "Non-compliant" }
+            : { bar: "bg-white/30", text: "text-white/65", label: "Not yet scored" };
+  return (
+    <div className="relative overflow-hidden rounded-2xl border-2 border-white/30 bg-white/[0.14] backdrop-blur-md min-w-[140px]">
+      <div className={`absolute inset-x-0 top-0 h-1 ${band.bar}`} aria-hidden />
+      <div className="px-4 pt-3 pb-3 text-right">
+        <p className="text-[9px] font-mono uppercase tracking-[0.22em] text-white/65">
+          Aggregate score
+        </p>
+        <p className="mt-1 font-display text-[56px] leading-none font-black tracking-tight text-white tabular-nums">
+          {letter}
+        </p>
+        <p className={`mt-1 text-[10px] font-semibold uppercase tracking-wider ${band.text}`}>
+          {band.label}
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -1450,18 +1558,43 @@ function DepartmentSource({
   stage,
   picked,
   onPick,
+  onUploadedParsed,
+  onParsingChange,
   disabled,
 }: {
   stage: SampleStage;
   picked: PickedFile | null;
   onPick: (p: PickedFile | null) => void;
+  onUploadedParsed?: (parsed: DeptSamplePreview | null) => void;
+  onParsingChange?: (parsing: boolean) => void;
   disabled?: boolean;
 }) {
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const samples = DEPT_SAMPLES[stage.id] ?? [];
 
-  function pickDropped(f: { name: string; size: number }) {
+  async function pickDroppedFile(f: File) {
     onPick({ name: f.name, size: humanBytes(f.size), source: "drop" });
+    if (!onUploadedParsed) return;
+    onParsingChange?.(true);
+    try {
+      const body = new FormData();
+      body.set("file", f);
+      const r = await fetch("/api/upload/parse", { method: "POST", body });
+      const j = (await r.json()) as {
+        success: boolean;
+        parsed?: import("@/lib/upload/parse-fta-excel").ParsedFile;
+        error?: string;
+      };
+      if (j.success && j.parsed) {
+        onUploadedParsed(convertParsedToDeptPreview(j.parsed));
+      } else {
+        onUploadedParsed(null);
+      }
+    } catch {
+      onUploadedParsed(null);
+    } finally {
+      onParsingChange?.(false);
+    }
   }
 
   return (
@@ -1474,7 +1607,7 @@ function DepartmentSource({
         onChange={(e) => {
           const f = e.target.files?.[0];
           if (!f) return;
-          pickDropped({ name: f.name, size: f.size });
+          void pickDroppedFile(f);
         }}
       />
       <div className="grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-4 items-stretch">
@@ -1594,18 +1727,40 @@ function DepartmentSource({
 function SamplePreviewPanel({
   stage,
   picked,
+  uploadedPreview,
+  parsingUpload,
 }: {
   stage: SampleStage;
   picked: PickedFile;
+  uploadedPreview?: DeptSamplePreview | null;
+  parsingUpload?: boolean;
 }) {
   const samples = DEPT_SAMPLES[stage.id] ?? [];
   const sample =
     picked.source === "sample"
       ? samples.find((s) => s.filename === picked.name) ?? null
       : null;
-  const preview = sample?.preview;
+  // Prefer the actual parsed payload for uploaded files; fall back to the
+  // hardcoded sample preview for packaged samples.
+  const preview =
+    picked.source === "drop" ? uploadedPreview ?? null : sample?.preview ?? null;
 
-  // Uploaded file with no curated preview — show a graceful empty state.
+  if (parsingUpload && picked.source === "drop") {
+    return (
+      <section className="glass-panel p-4 md:p-5">
+        <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-indigo-500 dark:text-indigo-400 mb-2">
+          Dataset preview · parsing your file
+        </p>
+        <p className="text-[13px] text-gray-700 dark:text-gray-300 leading-relaxed inline-flex items-center gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Parsing <strong className="px-1">{picked.name}</strong> — sheets,
+          rows, and red-flag heuristics…
+        </p>
+      </section>
+    );
+  }
+
+  // Uploaded file but parser returned nothing — graceful empty state.
   if (!preview) {
     return (
       <section className="glass-panel p-4 md:p-5">
@@ -1613,9 +1768,9 @@ function SamplePreviewPanel({
           Dataset preview · before running
         </p>
         <p className="text-[13px] text-gray-700 dark:text-gray-300 leading-relaxed">
-          <strong>{picked.name}</strong> is queued. The agent will parse the
-          file when you click Run; preview rows aren&apos;t cached for
-          uploaded files. Use a packaged sample to peek at the data first.
+          <strong>{picked.name}</strong> queued. The agent will read it when
+          you click Run. Pick a packaged sample on the right if you want to
+          see the canonical preview first.
         </p>
       </section>
     );
@@ -1808,6 +1963,83 @@ function humanBytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/**
+ * Convert a server-parsed `ParsedFile` into the `DeptSamplePreview` shape
+ * the SamplePreviewPanel renders, applying lightweight heuristic flags
+ * so suspicious rows highlight in red just like packaged-sample rows.
+ *
+ * Heuristics (intentionally generic — no schema knowledge required):
+ *   • Row contains any null / empty / "—" / "missing" cell → "Missing field"
+ *   • Row contains the strings "Suspended" / "Deregistered" / "Dormant" → "Status flagged"
+ *   • Row contains a negative number → "Negative value"
+ *   • Row contains a 4-digit year > current year → "Future date"
+ *   • Duplicate first-cell value (TRN / ID style) → "Soft duplicate"
+ */
+function convertParsedToDeptPreview(
+  parsed: import("@/lib/upload/parse-fta-excel").ParsedFile,
+): DeptSamplePreview {
+  const currentYear = new Date().getFullYear();
+  const sections = parsed.sections.map((s) => {
+    // Track first-cell occurrences within a section for duplicate detection
+    const firstCellCount = new Map<string, number>();
+    for (const row of s.sample_rows) {
+      const k = String(row[0] ?? "");
+      firstCellCount.set(k, (firstCellCount.get(k) ?? 0) + 1);
+    }
+    const rows: SampleDataRow[] = s.sample_rows.map((row) => {
+      const flag = detectRowFlag(row, firstCellCount, currentYear);
+      return flag ? { cells: row, flag } : { cells: row };
+    });
+    return {
+      label: s.label,
+      rows: s.rows,
+      summary: s.summary,
+      columns: s.columns,
+      sample_rows: rows,
+    };
+  });
+  return {
+    period: parsed.period,
+    sections,
+    headlines: parsed.headlines,
+  };
+}
+
+function detectRowFlag(
+  row: Array<string | number>,
+  firstCellCount: Map<string, number>,
+  currentYear: number,
+): string | undefined {
+  // Missing / empty
+  for (const cell of row) {
+    if (cell === null || cell === undefined) return "Missing field";
+    const s = String(cell).trim().toLowerCase();
+    if (s === "" || s === "—" || s === "-" || s === "n/a" || s === "null" || s === "missing") {
+      return "Missing field";
+    }
+  }
+  // Duplicate first cell (e.g. duplicate TRN)
+  const first = String(row[0] ?? "");
+  if (first && (firstCellCount.get(first) ?? 0) > 1) return "Soft duplicate";
+  // Status flags
+  for (const cell of row) {
+    const s = String(cell);
+    if (/suspended|deregistered|dormant|inactive|failed/i.test(s)) {
+      return "Status flagged";
+    }
+  }
+  // Negative numbers
+  for (const cell of row) {
+    if (typeof cell === "number" && cell < 0) return "Negative value";
+  }
+  // Future year
+  for (const cell of row) {
+    const m = String(cell).match(/(19|20)\d{2}/);
+    if (m && Number(m[0]) > currentYear) return "Future date";
+  }
+  return undefined;
 }
 
 function fmtAed(n: number): string {

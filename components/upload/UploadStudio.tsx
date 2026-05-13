@@ -17,6 +17,7 @@
  * individual agent durations, typically 25–35 s.
  */
 import * as React from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
   ChevronLeft,
@@ -135,15 +136,15 @@ interface SampleFile {
 }
 
 interface SampleInputPreview {
-  period: { start: string; end: string };
-  source: string;
+  period?: { start: string; end: string };
+  source?: string;
   sections: Array<{
     label: string;
     rows: number;
     summary: string;
     /** Column headers shown above sample_rows. */
     columns?: string[];
-    /** 2–3 representative rows from this section. */
+    /** Representative rows from this section. */
     sample_rows?: Array<Array<string | number>>;
   }>;
   headlines: Array<{ label: string; value: string }>;
@@ -383,6 +384,11 @@ type Phase = "idle" | "ingesting" | "running" | "complete" | "fatal";
 
 export function UploadStudio() {
   const [picked, setPicked] = React.useState<PickedFile | null>(null);
+  /** Parsed contents of the picked file (returned by /api/upload/parse).
+   *  Null while parsing / before pick; populated after parse succeeds. */
+  const [parsed, setParsed] = React.useState<SampleInputPreview | null>(null);
+  const [parsing, setParsing] = React.useState(false);
+  const [parseError, setParseError] = React.useState<string | null>(null);
   const [phase, setPhase] = React.useState<Phase>("idle");
   const [stageState, setStageState] = React.useState<Record<StageId, StageState>>(
     () => Object.fromEntries(STAGES.map((s) => [s.id, { status: "queued" }])) as Record<StageId, StageState>,
@@ -392,6 +398,8 @@ export function UploadStudio() {
   const [runStartedAt, setRunStartedAt] = React.useState<number | null>(null);
   const [runEndedAt, setRunEndedAt] = React.useState<number | null>(null);
   const [selectedId, setSelectedId] = React.useState<StageId | null>(null);
+  /** When set, opens a focused StagePanel modal for that pipeline stage. */
+  const [stagePanelId, setStagePanelId] = React.useState<StageId | null>(null);
 
   const inputRef = React.useRef<HTMLInputElement | null>(null);
   const abortRef = React.useRef<AbortController | null>(null);
@@ -405,18 +413,85 @@ export function UploadStudio() {
     setLog((p) => [...p, { ts: Date.now(), ...e }]);
   }
 
-  function pickFile(f: { name: string; size: string }) {
-    setPicked({ name: f.name, size: f.size, source: "drop" });
+  /** Server-side parse of an actual uploaded File. */
+  async function parseUploaded(f: File) {
+    setParsing(true);
+    setParseError(null);
+    setParsed(null);
+    try {
+      const body = new FormData();
+      body.set("file", f);
+      const r = await fetch("/api/upload/parse", { method: "POST", body });
+      const j = (await r.json()) as {
+        success: boolean;
+        parsed?: SampleInputPreview;
+        error?: string;
+      };
+      if (!j.success || !j.parsed) {
+        setParseError(j.error ?? "parse failed");
+      } else {
+        setParsed(j.parsed);
+      }
+    } catch (e) {
+      setParseError((e as Error).message);
+    } finally {
+      setParsing(false);
+    }
+  }
+
+  /** Server-side parse of a packaged sample by filename (local only). */
+  async function parseSample(filename: string) {
+    setParsing(true);
+    setParseError(null);
+    setParsed(null);
+    try {
+      const r = await fetch("/api/upload/parse", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename }),
+      });
+      const j = (await r.json()) as {
+        success: boolean;
+        parsed?: SampleInputPreview;
+        error?: string;
+      };
+      if (!j.success || !j.parsed) {
+        // Sample not on server — fall back to the hardcoded preview baked
+        // into SAMPLES, so the demo still feels populated on Vercel where
+        // the local xlsx files aren't bundled.
+        const fallback = SAMPLES.find((s) => s.filename === filename)?.preview ?? null;
+        if (fallback) {
+          setParsed(fallback);
+        } else {
+          setParseError(j.error ?? "sample not available on this deployment");
+        }
+      } else {
+        setParsed(j.parsed);
+      }
+    } catch (e) {
+      setParseError((e as Error).message);
+    } finally {
+      setParsing(false);
+    }
+  }
+
+  function pickFile(f: File) {
+    setPicked({ name: f.name, size: humanBytes(f.size), source: "drop" });
+    void parseUploaded(f);
   }
 
   function pickSample(s: SampleFile) {
     setPicked({ name: s.filename, size: s.size, source: "sample" });
+    void parseSample(s.filename);
   }
 
   function reset() {
     abortRef.current?.abort();
     setPhase("idle");
     setPicked(null);
+    setParsed(null);
+    setParseError(null);
+    setParsing(false);
     setLog([]);
     setAggregateAed(null);
     setRunStartedAt(null);
@@ -453,6 +528,10 @@ export function UploadStudio() {
       const r = await fetch("/api/upload/run", {
         method: "POST",
         signal: ctrl.signal,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          uploaded_file: parsed,
+        }),
       });
       if (!r.body) throw new Error("missing response body");
       const reader = r.body.getReader();
@@ -659,7 +738,7 @@ export function UploadStudio() {
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   if (!f) return;
-                  pickFile({ name: f.name, size: humanBytes(f.size) });
+                  pickFile(f);
                 }}
               />
 
@@ -801,7 +880,10 @@ export function UploadStudio() {
                     def={s}
                     state={stageState[s.id]}
                     selected={selectedId === s.id}
-                    onSelect={() => setSelectedId(s.id)}
+                    onSelect={() => {
+                      setSelectedId(s.id);
+                      setStagePanelId(s.id);
+                    }}
                   />
                 ))}
               </div>
@@ -829,15 +911,13 @@ export function UploadStudio() {
               )}
             </div>
 
-            {/* ── Sample Input Viewer — show what's actually being fed in ── */}
+            {/* ── Sample Input Viewer — driven by /api/upload/parse ── */}
             {picked && (
               <SampleInputViewer
                 file={picked}
-                preview={
-                  picked.source === "sample"
-                    ? SAMPLES.find((s) => s.filename === picked.name)?.preview ?? null
-                    : null
-                }
+                preview={parsed}
+                parsing={parsing}
+                error={parseError}
               />
             )}
 
@@ -1014,6 +1094,14 @@ export function UploadStudio() {
           </section>
         </div>
       </main>
+
+      {/* Stage drill-in modal — opens when a pipeline tile is clicked */}
+      <StagePanel
+        open={stagePanelId !== null}
+        stageId={stagePanelId}
+        stageState={stagePanelId ? stageState[stagePanelId] : undefined}
+        onClose={() => setStagePanelId(null)}
+      />
     </div>
   );
 }
@@ -1240,9 +1328,13 @@ function SampleSectionRow({
 function SampleInputViewer({
   file,
   preview,
+  parsing,
+  error,
 }: {
   file: PickedFile;
   preview: SampleInputPreview | null;
+  parsing?: boolean;
+  error?: string | null;
 }) {
   return (
     <div className="backdrop-blur-xl bg-white dark:bg-white/[0.05] border border-gray-200 dark:border-white/10 rounded-2xl shadow-sm dark:shadow-black/30 overflow-hidden animate-fade-up">
@@ -1262,7 +1354,7 @@ function SampleInputViewer({
         </div>
         <div className="text-right text-[10px] font-mono text-gray-500 dark:text-gray-400">
           <div>{file.size}</div>
-          {preview && (
+          {preview?.period && (
             <div>
               {preview.period.start} → {preview.period.end}
             </div>
@@ -1270,7 +1362,19 @@ function SampleInputViewer({
         </div>
       </div>
 
-      {preview ? (
+      {parsing && (
+        <div className="px-5 py-4 flex items-center gap-2 text-[12px] text-gray-600 dark:text-gray-400">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          Parsing {file.name}…
+        </div>
+      )}
+      {error && !parsing && (
+        <div className="px-5 py-4 text-[12px] text-amber-700 dark:text-amber-300">
+          <strong>Parse note:</strong> {error}
+        </div>
+      )}
+
+      {!parsing && !error && preview ? (
         <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-0">
           {/* Left: sections summary with expandable sample rows */}
           <div className="p-5 border-b lg:border-b-0 lg:border-r border-gray-200 dark:border-white/5">
@@ -1309,12 +1413,13 @@ function SampleInputViewer({
             </div>
           </div>
         </div>
-      ) : (
+      ) : !parsing && !error ? (
         <div className="p-5 text-[12px] text-gray-500 dark:text-gray-400">
-          Uploaded file detected. Agents will read the seeded SQLite for this
-          POC; the real ingestion path is a follow-up.
+          File picked. Click <strong>Run pipeline</strong> to fire the five
+          agents — they&apos;ll receive a parsed summary of this file alongside
+          the live Supabase aggregates.
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -1393,6 +1498,213 @@ function StoryCard({
 }
 
 // ─── AgentDataFlow ─ input → output for one stage ─────────────────────────
+
+// ─── StagePanel ─ drill-in modal opened from pipeline tile ───────────────
+
+function StagePanel({
+  open,
+  stageId,
+  stageState,
+  onClose,
+}: {
+  open: boolean;
+  stageId: StageId | null;
+  stageState: StageState | undefined;
+  onClose: () => void;
+}) {
+  const [mounted, setMounted] = React.useState(false);
+  const [openIndicator, setOpenIndicator] =
+    React.useState<IndicatorPanelData | null>(null);
+
+  React.useEffect(() => setMounted(true), []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  React.useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (!open || !mounted || !stageId) return null;
+
+  const def = STAGES.find((s) => s.id === stageId);
+  if (!def) return null;
+  const Icon = def.icon;
+  const status = stageState?.status ?? "queued";
+  const parsed = stageState?.parsed ?? null;
+  const score =
+    (parsed?.poa_aggregate_score as string | undefined) ??
+    (parsed?.aggregate_score as string | undefined) ??
+    stageState?.score;
+  const outcome =
+    (parsed?.business_outcome as string | undefined) ?? stageState?.outcome;
+  const rawIndicators =
+    (parsed?.indicators as Array<Record<string, unknown>> | undefined) ?? [];
+  const recommendations =
+    (parsed?.recommendations as string[] | undefined) ?? [];
+  const flagged = extractFlagged(def.id, parsed ?? undefined);
+
+  const content = (
+    <>
+      <div
+        className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8"
+        onClick={onClose}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="absolute inset-0 bg-gray-900/60 dark:bg-black/70 backdrop-blur-sm animate-fade-in" />
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="relative w-full max-w-5xl max-h-[90vh] overflow-hidden rounded-2xl bg-white dark:bg-[#1e2128] border border-gray-200 dark:border-white/10 shadow-2xl shadow-black/30 animate-fade-up flex flex-col"
+        >
+          {/* Top accent stripe */}
+          <div className={`h-1 bg-gradient-to-r ${def.gradient}`} />
+
+          {/* Header */}
+          <div className="flex items-start gap-4 px-6 py-4 border-b border-gray-200 dark:border-white/5">
+            <div
+              className={`h-12 w-12 rounded-xl bg-gradient-to-br ${def.gradient} ${def.shadow} shadow-md flex items-center justify-center shrink-0`}
+            >
+              <Icon className="h-5 w-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-indigo-500 dark:text-indigo-400">
+                POA {def.poa} · {def.persona} · {def.role}
+              </p>
+              <h2 className="mt-0.5 text-xl font-bold text-gray-900 dark:text-white leading-tight">
+                {def.step}
+              </h2>
+              {stageState?.durationMs != null && (
+                <p className="mt-1 text-[10.5px] font-mono text-emerald-600 dark:text-emerald-400">
+                  scored in {(stageState.durationMs / 1000).toFixed(1)}s
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {score && <ScoreBadge score={score} />}
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-8 w-8 inline-flex items-center justify-center rounded-full text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-5">
+            {/* Status when not done */}
+            {status === "queued" && (
+              <div className="rounded-xl border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/[0.03] p-4 text-[13px] text-gray-600 dark:text-gray-400">
+                <strong>Queued.</strong> {def.persona} hasn&apos;t started yet —
+                click <em>Run pipeline</em> to fire all five agents.
+              </div>
+            )}
+            {status === "running" && (
+              <div className="inline-flex items-center gap-2 rounded-xl border border-violet-300 dark:border-violet-500/30 bg-violet-50 dark:bg-violet-500/10 px-4 py-3 text-[13px] text-violet-700 dark:text-violet-300">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                {def.persona} is scoring against the TADAT 2025 rubric…
+              </div>
+            )}
+            {status === "error" && (
+              <div className="rounded-xl border border-red-300 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 p-4 text-[13px] text-red-700 dark:text-red-300">
+                <strong>Run failed:</strong> {stageState?.error ?? "unknown error"}.
+              </div>
+            )}
+
+            {/* Outcome */}
+            {outcome && status === "done" && (
+              <div className="rounded-xl border border-indigo-200 dark:border-indigo-500/30 bg-gradient-to-br from-indigo-50 to-violet-50/40 dark:from-indigo-500/[0.06] dark:to-violet-500/[0.04] p-4">
+                <p className="text-[10px] font-mono uppercase tracking-wider text-indigo-600 dark:text-indigo-300 mb-1">
+                  Business outcome
+                </p>
+                <p className="text-[14px] font-medium text-gray-900 dark:text-white leading-relaxed">
+                  {outcome}
+                </p>
+              </div>
+            )}
+
+            {/* Indicators */}
+            {rawIndicators.length > 0 && (
+              <div>
+                <IndicatorTable
+                  indicators={rawIndicators}
+                  onPick={(d) => setOpenIndicator(d)}
+                />
+              </div>
+            )}
+
+            {/* Flagged records */}
+            {flagged && flagged.rows.length > 0 && (
+              <FlaggedItems
+                title={flagged.title}
+                columns={flagged.columns}
+                rows={flagged.rows}
+              />
+            )}
+
+            {/* Recommendations */}
+            {recommendations.length > 0 && (
+              <div>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1.5">
+                  Recommendations
+                </p>
+                <ul className="space-y-1.5">
+                  {recommendations.slice(0, 5).map((r, i) => (
+                    <li
+                      key={i}
+                      className="flex gap-2 text-[13px] text-gray-700 dark:text-gray-300 leading-relaxed"
+                    >
+                      <span className="text-indigo-500 dark:text-indigo-400 shrink-0">→</span>
+                      <span>{r}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="border-t border-gray-200 dark:border-white/5 px-6 py-3 flex items-center justify-between bg-gray-50/60 dark:bg-black/20">
+            <p className="text-[10.5px] text-gray-500 dark:text-gray-400">
+              Click any indicator to see its TADAT definition + the
+              agent&apos;s evidence.
+            </p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center gap-1 rounded-full border border-gray-200 dark:border-white/15 bg-white dark:bg-white/5 px-3 py-1.5 text-[11.5px] text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Nested indicator drill-in — opens on top of the stage panel */}
+      <IndicatorPanel
+        open={openIndicator !== null}
+        data={openIndicator}
+        onClose={() => setOpenIndicator(null)}
+      />
+    </>
+  );
+
+  return createPortal(content, document.body);
+}
 
 function AgentDataFlow({
   def,
