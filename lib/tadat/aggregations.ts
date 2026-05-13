@@ -78,11 +78,11 @@ export async function aggregateRegistry(): Promise<RegistryAggregations> {
   );
   const byEmirate = Object.fromEntries(
     (await many<{ emirate: string; c: string }>(
-      `SELECT emirate, COUNT(*)::text AS c FROM taxpayers GROUP BY emirate ORDER BY c::int DESC`,
+      `SELECT emirate, COUNT(*)::text AS c FROM taxpayers GROUP BY emirate ORDER BY COUNT(*) DESC`,
     )).map((r) => [r.emirate, Number(r.c)]),
   );
   const byIndustry = (await many<{ industry: string; c: string }>(
-    `SELECT industry, COUNT(*)::text AS c FROM taxpayers GROUP BY industry ORDER BY c::int DESC LIMIT 5`,
+    `SELECT industry, COUNT(*)::text AS c FROM taxpayers GROUP BY industry ORDER BY COUNT(*) DESC LIMIT 5`,
   )).map((r) => ({ industry: r.industry, c: Number(r.c) }));
 
   const missingEmail = Number((await one<{ c: string }>(
