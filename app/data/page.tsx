@@ -1,20 +1,28 @@
-import { getDb } from "@/lib/db";
+import { one, many } from "@/lib/db";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
-export default function DataPage() {
-  const db = getDb();
+export default async function DataPage() {
   const tables = ["taxpayers", "declarations", "payments", "arrears_ledger", "collections_summary", "fta_aggregates"];
-  const stats = tables.map((t) => {
-    const c = (db.prepare(`SELECT COUNT(*) AS c FROM ${t}`).get() as { c: number }).c;
-    return { table: t, count: c };
-  });
+  const stats = await Promise.all(
+    tables.map(async (t) => {
+      const r = await one<{ c: string }>(`SELECT COUNT(*)::text AS c FROM ${t}`);
+      return { table: t, count: Number(r?.c ?? 0) };
+    }),
+  );
 
-  // Sample of real FTA anchors to surface
-  const ftaSample = db
-    .prepare(`SELECT fiscal_year, metric, value FROM fta_aggregates ORDER BY fiscal_year DESC, metric LIMIT 12`)
-    .all() as Array<{ fiscal_year: number; metric: string; value: number }>;
+  const ftaSampleRaw = await many<{ fiscal_year: number; metric: string; value: string }>(
+    `SELECT fiscal_year, metric, value::text AS value
+     FROM fta_aggregates
+     ORDER BY fiscal_year DESC, metric
+     LIMIT 12`,
+  );
+  const ftaSample = ftaSampleRaw.map((r) => ({
+    fiscal_year: r.fiscal_year,
+    metric: r.metric,
+    value: Number(r.value),
+  }));
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">

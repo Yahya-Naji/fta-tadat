@@ -4,7 +4,7 @@
  * apply the scoring rubric + write the narrative. This pattern matches the
  * existing DDA-ISO project and keeps numeric results deterministic.
  */
-import { getDb } from "@/lib/db";
+import { one, many } from "@/lib/db";
 
 // =========================================================================
 //   POA 1 — Registry Integrity
@@ -61,55 +61,82 @@ export interface RegistryAggregations {
   period_assessed: string;
 }
 
-export function aggregateRegistry(): RegistryAggregations {
-  const db = getDb();
-
-  const total = (db.prepare(`SELECT COUNT(*) AS c FROM taxpayers`).get() as { c: number }).c;
+export async function aggregateRegistry(): Promise<RegistryAggregations> {
+  const total = Number((await one<{ c: string }>(
+    `SELECT COUNT(*)::text AS c FROM taxpayers`,
+  ))?.c ?? 0);
 
   const byStatus = Object.fromEntries(
-    (db.prepare(`SELECT status, COUNT(*) AS c FROM taxpayers GROUP BY status`).all() as Array<{ status: string; c: number }>)
-      .map((r) => [r.status, r.c])
+    (await many<{ status: string; c: string }>(
+      `SELECT status, COUNT(*)::text AS c FROM taxpayers GROUP BY status`,
+    )).map((r) => [r.status, Number(r.c)]),
   );
   const bySegment = Object.fromEntries(
-    (db.prepare(`SELECT segment, COUNT(*) AS c FROM taxpayers GROUP BY segment`).all() as Array<{ segment: string; c: number }>)
-      .map((r) => [r.segment, r.c])
+    (await many<{ segment: string; c: string }>(
+      `SELECT segment, COUNT(*)::text AS c FROM taxpayers GROUP BY segment`,
+    )).map((r) => [r.segment, Number(r.c)]),
   );
   const byEmirate = Object.fromEntries(
-    (db.prepare(`SELECT emirate, COUNT(*) AS c FROM taxpayers GROUP BY emirate ORDER BY c DESC`).all() as Array<{ emirate: string; c: number }>)
-      .map((r) => [r.emirate, r.c])
+    (await many<{ emirate: string; c: string }>(
+      `SELECT emirate, COUNT(*)::text AS c FROM taxpayers GROUP BY emirate ORDER BY c::int DESC`,
+    )).map((r) => [r.emirate, Number(r.c)]),
   );
-  const byIndustry = (db.prepare(`SELECT industry, COUNT(*) AS c FROM taxpayers GROUP BY industry ORDER BY c DESC LIMIT 5`).all() as Array<{ industry: string; c: number }>);
+  const byIndustry = (await many<{ industry: string; c: string }>(
+    `SELECT industry, COUNT(*)::text AS c FROM taxpayers GROUP BY industry ORDER BY c::int DESC LIMIT 5`,
+  )).map((r) => ({ industry: r.industry, c: Number(r.c) }));
 
-  const missingEmail = (db.prepare(`SELECT COUNT(*) AS c FROM taxpayers WHERE email IS NULL`).get() as { c: number }).c;
-  const missingPhone = (db.prepare(`SELECT COUNT(*) AS c FROM taxpayers WHERE phone IS NULL`).get() as { c: number }).c;
-  const missingEither = (db.prepare(`SELECT COUNT(*) AS c FROM taxpayers WHERE email IS NULL OR phone IS NULL`).get() as { c: number }).c;
-  const missingBO = (db.prepare(`SELECT COUNT(*) AS c FROM taxpayers WHERE beneficial_owner_name IS NULL AND entity_type != 'Sole Establishment'`).get() as { c: number }).c;
+  const missingEmail = Number((await one<{ c: string }>(
+    `SELECT COUNT(*)::text AS c FROM taxpayers WHERE email IS NULL`,
+  ))?.c ?? 0);
+  const missingPhone = Number((await one<{ c: string }>(
+    `SELECT COUNT(*)::text AS c FROM taxpayers WHERE phone IS NULL`,
+  ))?.c ?? 0);
+  const missingEither = Number((await one<{ c: string }>(
+    `SELECT COUNT(*)::text AS c FROM taxpayers WHERE email IS NULL OR phone IS NULL`,
+  ))?.c ?? 0);
+  const missingBO = Number((await one<{ c: string }>(
+    `SELECT COUNT(*)::text AS c FROM taxpayers WHERE beneficial_owner_name IS NULL AND entity_type != 'Sole Establishment'`,
+  ))?.c ?? 0);
 
-  // Soft duplicates: same legal_name_en or same address fragment within emirate. Cheap heuristic.
-  const softDup = (db.prepare(`
-    SELECT COUNT(*) AS c FROM taxpayers t1
-    WHERE EXISTS (
-      SELECT 1 FROM taxpayers t2
-      WHERE t2.trn != t1.trn
-        AND t2.emirate = t1.emirate
-        AND t2.legal_name_en = t1.legal_name_en
-    )
-  `).get() as { c: number }).c;
+  // Soft duplicates: same legal_name_en within emirate.
+  const softDup = Number((await one<{ c: string }>(
+    `SELECT COUNT(*)::text AS c FROM taxpayers t1
+     WHERE EXISTS (
+       SELECT 1 FROM taxpayers t2
+       WHERE t2.trn != t1.trn
+         AND t2.emirate = t1.emirate
+         AND t2.legal_name_en = t1.legal_name_en
+     )`,
+  ))?.c ?? 0);
 
-  const dormantMismatch = (db.prepare(`
-    SELECT COUNT(*) AS c FROM taxpayers
-    WHERE status='Active'
-      AND vat_registered=1
-      AND (last_filing_date IS NULL OR last_filing_date < '2024-01-01')
-  `).get() as { c: number }).c;
+  const dormantMismatch = Number((await one<{ c: string }>(
+    `SELECT COUNT(*)::text AS c FROM taxpayers
+     WHERE status='Active'
+       AND vat_registered = TRUE
+       AND (last_filing_date IS NULL OR last_filing_date < '2024-01-01'::date)`,
+  ))?.c ?? 0);
 
-  const vatReg = (db.prepare(`SELECT COUNT(*) AS c FROM taxpayers WHERE vat_registered=1`).get() as { c: number }).c;
-  const exciseReg = (db.prepare(`SELECT COUNT(*) AS c FROM taxpayers WHERE excise_registered=1`).get() as { c: number }).c;
-  const ctReg = (db.prepare(`SELECT COUNT(*) AS c FROM taxpayers WHERE ct_registered=1`).get() as { c: number }).c;
+  const vatReg = Number((await one<{ c: string }>(
+    `SELECT COUNT(*)::text AS c FROM taxpayers WHERE vat_registered = TRUE`,
+  ))?.c ?? 0);
+  const exciseReg = Number((await one<{ c: string }>(
+    `SELECT COUNT(*)::text AS c FROM taxpayers WHERE excise_registered = TRUE`,
+  ))?.c ?? 0);
+  const ctReg = Number((await one<{ c: string }>(
+    `SELECT COUNT(*)::text AS c FROM taxpayers WHERE ct_registered = TRUE`,
+  ))?.c ?? 0);
 
-  // Sample issue rows — enriched for the worklist UI (top 25 each)
-  const dupSampleRaw = db.prepare(`
-    SELECT trn, legal_name_en AS name, emirate, segment, industry, registration_date
+  // Sample issue rows
+  const dupSample = await many<{
+    trn: string;
+    name: string;
+    emirate: string;
+    segment: string;
+    industry: string;
+    registration_date: string;
+  }>(`
+    SELECT trn, legal_name_en AS name, emirate, segment, industry,
+           to_char(registration_date, 'YYYY-MM-DD') AS registration_date
     FROM taxpayers
     WHERE legal_name_en IN (
       SELECT legal_name_en FROM taxpayers
@@ -117,24 +144,9 @@ export function aggregateRegistry(): RegistryAggregations {
     )
     ORDER BY legal_name_en, registration_date
     LIMIT 25
-  `).all() as Array<{
-    trn: string;
-    name: string;
-    emirate: string;
-    segment: string;
-    industry: string;
-    registration_date: string;
-  }>;
-  const dupSample = dupSampleRaw;
+  `);
 
-  const missingSampleRaw = db.prepare(`
-    SELECT trn, legal_name_en AS name, email, phone, segment, industry,
-           last_filing_date, vat_registered, ct_registered
-    FROM taxpayers
-    WHERE email IS NULL OR phone IS NULL
-    ORDER BY (CASE WHEN segment='Large' THEN 1 ELSE 2 END), last_filing_date DESC
-    LIMIT 25
-  `).all() as Array<{
+  const missingSampleRaw = await many<{
     trn: string;
     name: string;
     email: string | null;
@@ -142,36 +154,46 @@ export function aggregateRegistry(): RegistryAggregations {
     segment: string;
     industry: string;
     last_filing_date: string | null;
-    vat_registered: number;
-    ct_registered: number;
-  }>;
-
-  const dormantSample = db.prepare(`
-    SELECT trn, legal_name_en AS name, last_filing_date, segment, industry,
-           vat_registered, ct_registered, registration_date
+    vat_registered: boolean;
+    ct_registered: boolean;
+  }>(`
+    SELECT trn, legal_name_en AS name, email, phone, segment, industry,
+           to_char(last_filing_date, 'YYYY-MM-DD') AS last_filing_date,
+           vat_registered, ct_registered
     FROM taxpayers
-    WHERE status='Active' AND vat_registered=1
-      AND (last_filing_date IS NULL OR last_filing_date < '2024-01-01')
-    ORDER BY (CASE WHEN segment='Large' THEN 1 ELSE 2 END), last_filing_date ASC
+    WHERE email IS NULL OR phone IS NULL
+    ORDER BY (CASE WHEN segment='Large' THEN 1 ELSE 2 END), last_filing_date DESC NULLS LAST
     LIMIT 25
-  `).all() as Array<{
+  `);
+
+  const dormantSample = await many<{
     trn: string;
     name: string;
     last_filing_date: string | null;
     segment: string;
     industry: string;
-    vat_registered: number;
-    ct_registered: number;
+    vat_registered: boolean;
+    ct_registered: boolean;
     registration_date: string;
-  }>;
+  }>(`
+    SELECT trn, legal_name_en AS name,
+           to_char(last_filing_date, 'YYYY-MM-DD') AS last_filing_date,
+           segment, industry, vat_registered, ct_registered,
+           to_char(registration_date, 'YYYY-MM-DD') AS registration_date
+    FROM taxpayers
+    WHERE status='Active' AND vat_registered = TRUE
+      AND (last_filing_date IS NULL OR last_filing_date < '2024-01-01'::date)
+    ORDER BY (CASE WHEN segment='Large' THEN 1 ELSE 2 END), last_filing_date ASC NULLS FIRST
+    LIMIT 25
+  `);
 
   // Real FTA anchors
   const anchors = Object.fromEntries(
-    (db.prepare(`
-      SELECT metric, value FROM fta_aggregates
+    (await many<{ metric: string; value: string }>(`
+      SELECT metric, value::text AS value FROM fta_aggregates
       WHERE fiscal_year = 2025 OR (metric='cumulative_vat_registrants' AND fiscal_year=2021)
       ORDER BY fiscal_year DESC
-    `).all() as Array<{ metric: string; value: number }>).map((r) => [r.metric, r.value])
+    `)).map((r) => [r.metric, Number(r.value)]),
   );
 
   return {
@@ -197,13 +219,13 @@ export function aggregateRegistry(): RegistryAggregations {
         trn: r.trn,
         name: r.name,
         missing: [r.email == null && "email", r.phone == null && "phone"].filter(
-          Boolean
+          Boolean,
         ) as string[],
         segment: r.segment,
         industry: r.industry,
         last_filing_date: r.last_filing_date,
-        vat_registered: r.vat_registered === 1,
-        ct_registered: r.ct_registered === 1,
+        vat_registered: r.vat_registered === true,
+        ct_registered: r.ct_registered === true,
       })),
       dormant_active_mismatch: dormantSample.map((r) => ({
         trn: r.trn,
@@ -211,8 +233,8 @@ export function aggregateRegistry(): RegistryAggregations {
         last_filing_date: r.last_filing_date,
         segment: r.segment,
         industry: r.industry,
-        vat_registered: r.vat_registered === 1,
-        ct_registered: r.ct_registered === 1,
+        vat_registered: r.vat_registered === true,
+        ct_registered: r.ct_registered === true,
         registration_date: r.registration_date,
       })),
     },
@@ -265,89 +287,81 @@ export interface FilingAggregations {
   period_assessed: string;
 }
 
-export function aggregateFiling(): FilingAggregations {
-  const db = getDb();
-
+export async function aggregateFiling(): Promise<FilingAggregations> {
   const taxTypes = ["CT", "VAT", "EXCISE"] as const;
   const filingRates: FilingAggregations["filing_rates"] = {};
 
   for (const t of taxTypes) {
-    const overall = db.prepare(`
+    const overall = (await one<{
+      expected: string;
+      on_time: string;
+      late: string;
+      not_filed: string;
+    }>(`
       SELECT
-        COUNT(*) AS expected,
-        SUM(CASE WHEN status='Filed' AND is_late=0 THEN 1 ELSE 0 END) AS on_time,
-        SUM(CASE WHEN status='Filed' AND is_late=1 THEN 1 ELSE 0 END) AS late,
-        SUM(CASE WHEN status='NotFiled' THEN 1 ELSE 0 END) AS not_filed
-      FROM declarations WHERE tax_type=?
-    `).get(t) as { expected: number; on_time: number; late: number; not_filed: number };
+        COUNT(*)::text                                                    AS expected,
+        COALESCE(SUM(CASE WHEN status='Filed' AND is_late=FALSE THEN 1 ELSE 0 END), 0)::text  AS on_time,
+        COALESCE(SUM(CASE WHEN status='Filed' AND is_late=TRUE  THEN 1 ELSE 0 END), 0)::text  AS late,
+        COALESCE(SUM(CASE WHEN status='NotFiled' THEN 1 ELSE 0 END), 0)::text               AS not_filed
+      FROM declarations WHERE tax_type=$1
+    `, [t]))!;
 
-    const large = db.prepare(`
+    const large = (await one<{ expected: string; on_time: string }>(`
       SELECT
-        COUNT(*) AS expected,
-        SUM(CASE WHEN d.status='Filed' AND d.is_late=0 THEN 1 ELSE 0 END) AS on_time
+        COUNT(*)::text                                                                       AS expected,
+        COALESCE(SUM(CASE WHEN d.status='Filed' AND d.is_late=FALSE THEN 1 ELSE 0 END), 0)::text AS on_time
       FROM declarations d
       JOIN taxpayers tp ON tp.trn = d.trn
-      WHERE d.tax_type=? AND tp.segment='Large'
-    `).get(t) as { expected: number; on_time: number };
+      WHERE d.tax_type=$1 AND tp.segment='Large'
+    `, [t]))!;
 
+    const expected = Number(overall.expected);
+    const onTime = Number(overall.on_time);
+    const largeExp = Number(large.expected);
+    const largeOnTime = Number(large.on_time);
     filingRates[t] = {
-      expected: overall.expected,
-      on_time: overall.on_time,
-      late: overall.late,
-      not_filed: overall.not_filed,
-      rate_all_pct: overall.expected ? (overall.on_time / overall.expected) * 100 : 0,
-      rate_large_pct: large.expected ? (large.on_time / large.expected) * 100 : 0,
+      expected,
+      on_time: onTime,
+      late: Number(overall.late),
+      not_filed: Number(overall.not_filed),
+      rate_all_pct: expected ? (onTime / expected) * 100 : 0,
+      rate_large_pct: largeExp ? (largeOnTime / largeExp) * 100 : 0,
     };
   }
 
-  const eFiling = db.prepare(`
+  const eFiling = await one<{ rate: string | null }>(`
     SELECT
-      100.0 * SUM(CASE WHEN is_electronic=1 AND status='Filed' THEN 1 ELSE 0 END) /
-      NULLIF(SUM(CASE WHEN status='Filed' THEN 1 ELSE 0 END), 0) AS rate
+      (100.0 * SUM(CASE WHEN is_electronic=TRUE AND status='Filed' THEN 1 ELSE 0 END) /
+       NULLIF(SUM(CASE WHEN status='Filed' THEN 1 ELSE 0 END), 0))::text AS rate
     FROM declarations
-  `).get() as { rate: number };
+  `);
 
   const eFilingByTax = Object.fromEntries(
-    (db.prepare(`
+    (await many<{ tax_type: string; rate: string | null }>(`
       SELECT tax_type,
-        100.0 * SUM(CASE WHEN is_electronic=1 AND status='Filed' THEN 1 ELSE 0 END) /
-        NULLIF(SUM(CASE WHEN status='Filed' THEN 1 ELSE 0 END), 0) AS rate
+        (100.0 * SUM(CASE WHEN is_electronic=TRUE AND status='Filed' THEN 1 ELSE 0 END) /
+         NULLIF(SUM(CASE WHEN status='Filed' THEN 1 ELSE 0 END), 0))::text AS rate
       FROM declarations GROUP BY tax_type
-    `).all() as Array<{ tax_type: string; rate: number }>).map((r) => [r.tax_type, r.rate])
+    `)).map((r) => [r.tax_type, r.rate == null ? 0 : Number(r.rate)]),
   );
 
   const nonFilerByTax = Object.fromEntries(
-    (db.prepare(`
-      SELECT tax_type, COUNT(*) AS c FROM declarations
+    (await many<{ tax_type: string; c: string }>(`
+      SELECT tax_type, COUNT(*)::text AS c FROM declarations
       WHERE status='NotFiled' GROUP BY tax_type
-    `).all() as Array<{ tax_type: string; c: number }>).map((r) => [r.tax_type, r.c])
+    `)).map((r) => [r.tax_type, Number(r.c)]),
   );
-  const nonFilerTotal = Object.values(nonFilerByTax).reduce((a, b) => a + b, 0);
-  const nonFilerTotals = db.prepare(`
-    SELECT COALESCE(MAX(declared_tax_due), 0) AS highest,
-           COALESCE(SUM(declared_tax_due), 0) AS total
+  const nonFilerTotal = Object.values(nonFilerByTax).reduce(
+    (a, b) => a + (b as number),
+    0,
+  );
+  const nonFilerTotals = (await one<{ highest: string; total: string }>(`
+    SELECT COALESCE(MAX(declared_tax_due), 0)::text AS highest,
+           COALESCE(SUM(declared_tax_due), 0)::text AS total
     FROM declarations WHERE status='NotFiled'
-  `).get() as { highest: number; total: number };
+  `))!;
 
-  const nonFilerSample = db.prepare(`
-    SELECT
-      d.declaration_id,
-      d.trn,
-      tp.legal_name_en,
-      d.tax_type,
-      d.period_end                                                AS period_end,
-      d.statutory_due_date                                        AS due_date,
-      CAST(julianday('now') - julianday(d.statutory_due_date)
-           AS INTEGER)                                            AS days_overdue,
-      d.declared_tax_due                                          AS tax_due,
-      tp.industry                                                 AS industry,
-      tp.segment                                                  AS segment
-    FROM declarations d
-    JOIN taxpayers tp ON tp.trn = d.trn
-    WHERE d.status='NotFiled'
-    ORDER BY d.declared_tax_due DESC
-    LIMIT 25
-  `).all() as Array<{
+  const nonFilerSample = await many<{
     declaration_id: string;
     trn: string;
     legal_name_en: string;
@@ -355,10 +369,27 @@ export function aggregateFiling(): FilingAggregations {
     period_end: string;
     due_date: string;
     days_overdue: number;
-    tax_due: number;
+    tax_due: string;
     industry: string;
     segment: string;
-  }>;
+  }>(`
+    SELECT
+      d.declaration_id,
+      d.trn,
+      tp.legal_name_en,
+      d.tax_type,
+      to_char(d.period_end, 'YYYY-MM-DD')                              AS period_end,
+      to_char(d.statutory_due_date, 'YYYY-MM-DD')                      AS due_date,
+      (CURRENT_DATE - d.statutory_due_date)::int                       AS days_overdue,
+      d.declared_tax_due::text                                          AS tax_due,
+      tp.industry                                                      AS industry,
+      tp.segment                                                       AS segment
+    FROM declarations d
+    JOIN taxpayers tp ON tp.trn = d.trn
+    WHERE d.status='NotFiled'
+    ORDER BY d.declared_tax_due DESC
+    LIMIT 25
+  `);
 
   const labelPeriod = (taxType: string, periodEnd: string): string => {
     const d = new Date(periodEnd);
@@ -380,21 +411,21 @@ export function aggregateFiling(): FilingAggregations {
     tax_type: r.tax_type,
     period_label: labelPeriod(r.tax_type, r.period_end),
     due_date: r.due_date,
-    days_overdue: Math.max(0, r.days_overdue),
-    tax_due: r.tax_due,
+    days_overdue: Math.max(0, Number(r.days_overdue)),
+    tax_due: Number(r.tax_due),
     industry: r.industry,
     segment: r.segment,
   }));
 
   return {
     filing_rates: filingRates,
-    e_filing_rate_pct_overall: eFiling.rate ?? 0,
+    e_filing_rate_pct_overall: eFiling?.rate == null ? 0 : Number(eFiling.rate),
     e_filing_rate_pct_by_tax: eFilingByTax,
     non_filer_worklist: {
       total_cases: nonFilerTotal,
       by_tax_type: nonFilerByTax,
-      highest_value_aed: nonFilerTotals.highest,
-      total_aed_outstanding: nonFilerTotals.total,
+      highest_value_aed: Number(nonFilerTotals.highest),
+      total_aed_outstanding: Number(nonFilerTotals.total),
       sample_cases: enrichedSample,
     },
     // For the POC these reflect what's actually implemented in our seed.
@@ -444,77 +475,108 @@ export interface PaymentsAggregations {
   period_assessed: string;
 }
 
-export function aggregatePayments(): PaymentsAggregations {
-  const db = getDb();
-
+export async function aggregatePayments(): Promise<PaymentsAggregations> {
   // P5-16
-  const ePayOverall = (db.prepare(`
-    SELECT 100.0 * SUM(CASE WHEN is_electronic=1 THEN amount_aed ELSE 0 END) /
-           NULLIF(SUM(amount_aed),0) AS r FROM payments
-  `).get() as { r: number }).r ?? 0;
+  const ePayOverallRow = await one<{ r: string | null }>(`
+    SELECT (100.0 * SUM(CASE WHEN is_electronic=TRUE THEN amount_aed ELSE 0 END) /
+            NULLIF(SUM(amount_aed),0))::text AS r FROM payments
+  `);
+  const ePayOverall = ePayOverallRow?.r == null ? 0 : Number(ePayOverallRow.r);
 
   const ePayByTax = Object.fromEntries(
-    (db.prepare(`
+    (await many<{ tax_type: string; r: string | null }>(`
       SELECT tax_type,
-        100.0 * SUM(CASE WHEN is_electronic=1 THEN amount_aed ELSE 0 END) /
-        NULLIF(SUM(amount_aed),0) AS r
+        (100.0 * SUM(CASE WHEN is_electronic=TRUE THEN amount_aed ELSE 0 END) /
+         NULLIF(SUM(amount_aed),0))::text AS r
       FROM payments GROUP BY tax_type
-    `).all() as Array<{ tax_type: string; r: number }>).map((x) => [x.tax_type, x.r])
+    `)).map((x) => [x.tax_type, x.r == null ? 0 : Number(x.r)]),
   );
 
-  const ePayLarge = (db.prepare(`
-    SELECT 100.0 * SUM(CASE WHEN p.is_electronic=1 THEN p.amount_aed ELSE 0 END) /
-           NULLIF(SUM(p.amount_aed),0) AS r
+  const ePayLargeRow = await one<{ r: string | null }>(`
+    SELECT (100.0 * SUM(CASE WHEN p.is_electronic=TRUE THEN p.amount_aed ELSE 0 END) /
+            NULLIF(SUM(p.amount_aed),0))::text AS r
     FROM payments p JOIN taxpayers tp ON tp.trn = p.trn
     WHERE tp.segment='Large'
-  `).get() as { r: number }).r ?? 0;
+  `);
+  const ePayLarge = ePayLargeRow?.r == null ? 0 : Number(ePayLargeRow.r);
 
   // P5-18
-  const vatPay = db.prepare(`
+  const vatPay = (await one<{
+    total_n: string;
+    on_time_n: string;
+    total_v: string;
+    on_time_v: string;
+  }>(`
     SELECT
-      COUNT(*) AS total_n,
-      SUM(CASE WHEN is_late=0 THEN 1 ELSE 0 END) AS on_time_n,
-      SUM(amount_aed) AS total_v,
-      SUM(CASE WHEN is_late=0 THEN amount_aed ELSE 0 END) AS on_time_v
+      COUNT(*)::text                                                                AS total_n,
+      COALESCE(SUM(CASE WHEN is_late=FALSE THEN 1 ELSE 0 END), 0)::text              AS on_time_n,
+      COALESCE(SUM(amount_aed), 0)::text                                             AS total_v,
+      COALESCE(SUM(CASE WHEN is_late=FALSE THEN amount_aed ELSE 0 END), 0)::text     AS on_time_v
     FROM payments WHERE tax_type='VAT'
-  `).get() as { total_n: number; on_time_n: number; total_v: number; on_time_v: number };
+  `))!;
 
-  const vatPayLarge = db.prepare(`
+  const vatPayLarge = (await one<{
+    total_n: string;
+    on_time_n: string;
+    total_v: string;
+    on_time_v: string;
+  }>(`
     SELECT
-      COUNT(*) AS total_n,
-      SUM(CASE WHEN p.is_late=0 THEN 1 ELSE 0 END) AS on_time_n,
-      SUM(p.amount_aed) AS total_v,
-      SUM(CASE WHEN p.is_late=0 THEN p.amount_aed ELSE 0 END) AS on_time_v
+      COUNT(*)::text                                                                    AS total_n,
+      COALESCE(SUM(CASE WHEN p.is_late=FALSE THEN 1 ELSE 0 END), 0)::text                AS on_time_n,
+      COALESCE(SUM(p.amount_aed), 0)::text                                               AS total_v,
+      COALESCE(SUM(CASE WHEN p.is_late=FALSE THEN p.amount_aed ELSE 0 END), 0)::text     AS on_time_v
     FROM payments p JOIN taxpayers tp ON tp.trn = p.trn
     WHERE p.tax_type='VAT' AND tp.segment='Large'
-  `).get() as { total_n: number; on_time_n: number; total_v: number; on_time_v: number };
+  `))!;
+
+  const vatTotalN = Number(vatPay.total_n);
+  const vatOnTimeN = Number(vatPay.on_time_n);
+  const vatTotalV = Number(vatPay.total_v);
+  const vatOnTimeV = Number(vatPay.on_time_v);
+  const vatLargeTotalN = Number(vatPayLarge.total_n);
+  const vatLargeOnTimeN = Number(vatPayLarge.on_time_n);
+  const vatLargeTotalV = Number(vatPayLarge.total_v);
+  const vatLargeOnTimeV = Number(vatPayLarge.on_time_v);
 
   // P5-19
-  const yearly = db.prepare(`
+  const yearlyRaw = await many<{
+    fiscal_year: number;
+    total_pct: string | null;
+    collectible_pct: string | null;
+    old_pct: string | null;
+  }>(`
     SELECT fiscal_year,
-           100.0 * SUM(total_arrears_eoy_aed) / NULLIF(SUM(total_collected_aed),0) AS total_pct,
-           100.0 * SUM(collectible_arrears_eoy_aed) / NULLIF(SUM(total_collected_aed),0) AS collectible_pct,
-           100.0 * SUM(arrears_over_12mo_eoy_aed) / NULLIF(SUM(total_arrears_eoy_aed),0) AS old_pct
+           (100.0 * SUM(total_arrears_eoy_aed) / NULLIF(SUM(total_collected_aed),0))::text   AS total_pct,
+           (100.0 * SUM(collectible_arrears_eoy_aed) / NULLIF(SUM(total_collected_aed),0))::text AS collectible_pct,
+           (100.0 * SUM(arrears_over_12mo_eoy_aed) / NULLIF(SUM(total_arrears_eoy_aed),0))::text AS old_pct
     FROM collections_summary GROUP BY fiscal_year ORDER BY fiscal_year DESC
-  `).all() as Array<{ fiscal_year: number; total_pct: number; collectible_pct: number; old_pct: number }>;
+  `);
+  const yearly = yearlyRaw.map((r) => ({
+    fiscal_year: Number(r.fiscal_year),
+    total_pct: r.total_pct == null ? 0 : Number(r.total_pct),
+    collectible_pct: r.collectible_pct == null ? 0 : Number(r.collectible_pct),
+    old_pct: r.old_pct == null ? 0 : Number(r.old_pct),
+  }));
 
   const avg = (key: "total_pct" | "collectible_pct" | "old_pct") =>
     yearly.length ? yearly.reduce((s, r) => s + (r[key] ?? 0), 0) / yearly.length : 0;
 
-  // High-risk debtors: largest outstanding > 12 months
-  const debtors = db.prepare(`
-    SELECT a.trn, tp.legal_name_en, a.tax_type, a.outstanding_total_aed AS outstanding_aed,
-           a.age_bucket, a.collectible_flag
-    FROM arrears_ledger a JOIN taxpayers tp ON tp.trn = a.trn
-    ORDER BY a.outstanding_total_aed DESC LIMIT 10
-  `).all() as Array<{
+  // High-risk debtors: largest outstanding overall
+  const debtors = await many<{
     trn: string;
     legal_name_en: string;
     tax_type: string;
-    outstanding_aed: number;
+    outstanding_aed: string;
     age_bucket: string;
-    collectible_flag: number;
-  }>;
+    collectible_flag: boolean;
+  }>(`
+    SELECT a.trn, tp.legal_name_en, a.tax_type,
+           a.outstanding_total_aed::text AS outstanding_aed,
+           a.age_bucket, a.collectible_flag
+    FROM arrears_ledger a JOIN taxpayers tp ON tp.trn = a.trn
+    ORDER BY a.outstanding_total_aed DESC LIMIT 10
+  `);
 
   return {
     p5_16_e_payment: {
@@ -523,10 +585,10 @@ export function aggregatePayments(): PaymentsAggregations {
       by_value_pct_large: ePayLarge,
     },
     p5_18: {
-      vat_on_time_by_number_pct: vatPay.total_n ? (vatPay.on_time_n / vatPay.total_n) * 100 : 0,
-      vat_on_time_by_value_pct: vatPay.total_v ? (vatPay.on_time_v / vatPay.total_v) * 100 : 0,
-      vat_on_time_large_by_number_pct: vatPayLarge.total_n ? (vatPayLarge.on_time_n / vatPayLarge.total_n) * 100 : 0,
-      vat_on_time_large_by_value_pct: vatPayLarge.total_v ? (vatPayLarge.on_time_v / vatPayLarge.total_v) * 100 : 0,
+      vat_on_time_by_number_pct: vatTotalN ? (vatOnTimeN / vatTotalN) * 100 : 0,
+      vat_on_time_by_value_pct: vatTotalV ? (vatOnTimeV / vatTotalV) * 100 : 0,
+      vat_on_time_large_by_number_pct: vatLargeTotalN ? (vatLargeOnTimeN / vatLargeTotalN) * 100 : 0,
+      vat_on_time_large_by_value_pct: vatLargeTotalV ? (vatLargeOnTimeV / vatLargeTotalV) * 100 : 0,
     },
     p5_19_3yr_avg: {
       total_arrears_to_collections_pct: avg("total_pct"),
@@ -538,9 +600,9 @@ export function aggregatePayments(): PaymentsAggregations {
       trn: d.trn,
       legal_name_en: d.legal_name_en,
       tax_type: d.tax_type,
-      outstanding_aed: d.outstanding_aed,
+      outstanding_aed: Number(d.outstanding_aed),
       age_bucket: d.age_bucket,
-      collectible: d.collectible_flag === 1,
+      collectible: d.collectible_flag === true,
     })),
     period_assessed: "FY2023–2025 (3-year average per P5-19 methodology)",
   };
@@ -672,11 +734,13 @@ export interface RiskMgmtAggregations {
   sources: string[];
 }
 
-export function aggregateRiskMgmt(): RiskMgmtAggregations {
+export async function aggregateRiskMgmt(): Promise<RiskMgmtAggregations> {
   // Derive quantitative signals from the existing POA 1/4/5 aggregators.
-  const reg = aggregateRegistry();
-  const fil = aggregateFiling();
-  const pay = aggregatePayments();
+  const [reg, fil, pay] = await Promise.all([
+    aggregateRegistry(),
+    aggregateFiling(),
+    aggregatePayments(),
+  ]);
 
   const dataDerived = {
     registry: {
@@ -1083,10 +1147,9 @@ export interface FacilitationAggregations {
   sources: string[];
 }
 
-export function aggregateFacilitation(): FacilitationAggregations {
+export async function aggregateFacilitation(): Promise<FacilitationAggregations> {
   // Real adoption rates from POA 4 / 5
-  const fil = aggregateFiling();
-  const pay = aggregatePayments();
+  const [fil, pay] = await Promise.all([aggregateFiling(), aggregatePayments()]);
 
   return {
     service_channels: {

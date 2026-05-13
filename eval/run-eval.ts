@@ -56,9 +56,13 @@ console.log("\n═════════════════════�
 console.log("  Layer 1 Eval — Deterministic Rubric on SQL Aggregations");
 console.log("══════════════════════════════════════════════════════════════════\n");
 
+await main();
+process.exit(fail > 0 ? 1 : 0);
+
+async function main() {
 // ── POA 1 ──────────────────────────────────────────────────────────────────
 console.log("─── POA 1 · Registry Integrity ──────────────────────────────\n");
-const reg = aggregateRegistry();
+const reg = await aggregateRegistry();
 const total = reg.registry_stats.total_records;
 const dupRate = reg.registry_stats.soft_duplicate_pairs_count / total;
 const missingContactRate = reg.registry_stats.missing_either_contact_count / total;
@@ -77,7 +81,7 @@ check("P1-1-2 deterministic score", groundTruth.expected.POA1["P1-1-2"], p11_2);
 
 // ── POA 4 ──────────────────────────────────────────────────────────────────
 console.log("\n─── POA 4 · On-Time Filing ──────────────────────────────────\n");
-const fil = aggregateFiling();
+const fil = await aggregateFiling();
 
 const ctRate = fil.filing_rates.CT.rate_all_pct;
 const vatRate = fil.filing_rates.VAT.rate_all_pct;
@@ -108,7 +112,7 @@ check("P4-15 e-filing score", groundTruth.expected.POA4["P4-15"].expected_score,
 
 // ── POA 5 ──────────────────────────────────────────────────────────────────
 console.log("\n─── POA 5 · Payments & Arrears ──────────────────────────────\n");
-const pay = aggregatePayments();
+const pay = await aggregatePayments();
 
 const eP = pay.p5_16_e_payment.by_value_pct_overall;
 const p18n = pay.p5_18.vat_on_time_by_number_pct;
@@ -152,5 +156,4 @@ check("P5-19-3 score", groundTruth.expected.POA5["P5-19-3"].expected_score,
 console.log("\n══════════════════════════════════════════════════════════════════");
 console.log(`  Result: ${pass} passed, ${fail} failed`);
 console.log("══════════════════════════════════════════════════════════════════\n");
-
-process.exit(fail > 0 ? 1 : 0);
+}

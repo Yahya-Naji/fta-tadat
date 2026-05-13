@@ -322,7 +322,7 @@ const WORKFLOWS: Record<
   {
     poa: number;
     name: string;
-    aggregator: () => unknown;
+    aggregator: () => Promise<unknown>;
     instruction: string;
     schema: z.ZodTypeAny;
   }
@@ -389,7 +389,7 @@ export async function runAgent(workflow: WorkflowId): Promise<AgentRunResult> {
   const t0 = Date.now();
 
   // 1. Pre-aggregate
-  const inputs = spec.aggregator();
+  const inputs = await spec.aggregator();
 
   // 2. Build user message with the inputs
   const userMessage = `${spec.instruction}\n\nINPUT JSON:\n${JSON.stringify(

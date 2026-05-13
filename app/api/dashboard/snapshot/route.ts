@@ -6,10 +6,10 @@
  *   - Per-POA pre-aggregated data
  *   - Real FTA aggregate anchors for comparison
  *
- * Pure SQL — no LLM. Fast. Used by the dashboard for visualizations.
+ * Pure SQL — no LLM. Used by the dashboard for visualizations.
  */
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { one, many } from "@/lib/db";
 import {
   aggregateRegistry,
   aggregateFiling,
@@ -17,78 +17,98 @@ import {
 } from "@/lib/tadat/aggregations";
 
 export async function GET() {
-  const db = getDb();
+  // ── Top-line KPIs ─────────────────────────────────────────────────────
+  const [
+    taxpayersRow,
+    activeRow,
+    declRow,
+    paymentsRow,
+    collectedRow,
+    arrearsRow,
+    arrearsCountRow,
+    nonFilersRow,
+  ] = await Promise.all([
+    one<{ c: string }>(`SELECT COUNT(*)::text AS c FROM taxpayers`),
+    one<{ c: string }>(`SELECT COUNT(*)::text AS c FROM taxpayers WHERE status='Active'`),
+    one<{ c: string }>(`SELECT COUNT(*)::text AS c FROM declarations`),
+    one<{ c: string }>(`SELECT COUNT(*)::text AS c FROM payments`),
+    one<{ s: string }>(`SELECT COALESCE(SUM(amount_aed), 0)::text AS s FROM payments`),
+    one<{ s: string }>(`SELECT COALESCE(SUM(outstanding_total_aed), 0)::text AS s FROM arrears_ledger`),
+    one<{ c: string }>(`SELECT COUNT(*)::text AS c FROM arrears_ledger`),
+    one<{ c: string }>(`SELECT COUNT(*)::text AS c FROM declarations WHERE status='NotFiled'`),
+  ]);
 
-  // ── Top-line KPIs ───────────────────────────────────────────────────────
-  const taxpayers = (db.prepare(`SELECT COUNT(*) AS c FROM taxpayers`).get() as { c: number }).c;
-  const activeTaxpayers = (db.prepare(`SELECT COUNT(*) AS c FROM taxpayers WHERE status='Active'`).get() as { c: number }).c;
-  const declarations = (db.prepare(`SELECT COUNT(*) AS c FROM declarations`).get() as { c: number }).c;
-  const payments = (db.prepare(`SELECT COUNT(*) AS c FROM payments`).get() as { c: number }).c;
-  const totalCollected = (db.prepare(`SELECT COALESCE(SUM(amount_aed), 0) AS s FROM payments`).get() as { s: number }).s;
-  const totalArrears = (db.prepare(`SELECT COALESCE(SUM(outstanding_total_aed), 0) AS s FROM arrears_ledger`).get() as { s: number }).s;
-  const arrearsCount = (db.prepare(`SELECT COUNT(*) AS c FROM arrears_ledger`).get() as { c: number }).c;
-  const nonFilers = (db.prepare(`SELECT COUNT(*) AS c FROM declarations WHERE status='NotFiled'`).get() as { c: number }).c;
+  // ── Per-POA aggregations (run in parallel) ────────────────────────────
+  const [poa1, poa4, poa5] = await Promise.all([
+    aggregateRegistry(),
+    aggregateFiling(),
+    aggregatePayments(),
+  ]);
 
-  // ── Aggregations per POA (the same ones agents will receive) ───────────
-  const poa1 = aggregateRegistry();
-  const poa4 = aggregateFiling();
-  const poa5 = aggregatePayments();
-
-  // ── Real FTA anchors for the comparison panel ──────────────────────────
-  const ftaAnchors = db
-    .prepare(`SELECT fiscal_year, metric, value, source_file FROM fta_aggregates ORDER BY fiscal_year DESC, metric`)
-    .all();
-
-  // ── Arrears aging breakdown for the heat strip ─────────────────────────
-  const arrearsByBucket = db.prepare(`
-    SELECT age_bucket,
-           COUNT(*) AS cases,
-           ROUND(SUM(outstanding_total_aed), 2) AS amount_aed
-    FROM arrears_ledger
-    GROUP BY age_bucket
-    ORDER BY CASE age_bucket
-      WHEN '0-30' THEN 1 WHEN '31-90' THEN 2 WHEN '91-365' THEN 3 ELSE 4 END
-  `).all();
-
-  // ── Taxpayer distribution by emirate (for donut) ───────────────────────
-  const byEmirate = db.prepare(`
-    SELECT emirate, COUNT(*) AS count FROM taxpayers GROUP BY emirate ORDER BY count DESC
-  `).all();
-  const bySegment = db.prepare(`
-    SELECT segment, COUNT(*) AS count FROM taxpayers GROUP BY segment ORDER BY
-      CASE segment WHEN 'Large' THEN 1 WHEN 'Medium' THEN 2 WHEN 'Small' THEN 3 ELSE 4 END
-  `).all();
-
-  // ── Monthly filing trend (12 months VAT) for sparklines ────────────────
-  const filingTrend = db.prepare(`
-    SELECT
-      strftime('%Y-%m', period_end) AS month,
-      tax_type,
-      COUNT(*) AS expected,
-      SUM(CASE WHEN status='Filed' AND is_late=0 THEN 1 ELSE 0 END) AS on_time
-    FROM declarations
-    WHERE tax_type IN ('VAT','EXCISE')
-    GROUP BY month, tax_type
-    ORDER BY month
-  `).all();
+  // ── Real FTA anchors + distributions ──────────────────────────────────
+  const [ftaAnchors, arrearsByBucket, byEmirate, bySegment, filingTrend] =
+    await Promise.all([
+      many(
+        `SELECT fiscal_year, metric, value::text AS value, source_file
+         FROM fta_aggregates
+         ORDER BY fiscal_year DESC, metric`,
+      ),
+      many(`
+        SELECT age_bucket,
+               COUNT(*)::int AS cases,
+               ROUND(SUM(outstanding_total_aed)::numeric, 2)::text AS amount_aed
+        FROM arrears_ledger
+        GROUP BY age_bucket
+        ORDER BY CASE age_bucket
+          WHEN '0-30' THEN 1 WHEN '31-90' THEN 2 WHEN '91-365' THEN 3 ELSE 4 END
+      `),
+      many(
+        `SELECT emirate, COUNT(*)::int AS count
+         FROM taxpayers
+         GROUP BY emirate
+         ORDER BY count DESC`,
+      ),
+      many(`
+        SELECT segment, COUNT(*)::int AS count
+        FROM taxpayers
+        GROUP BY segment
+        ORDER BY CASE segment
+          WHEN 'Large' THEN 1 WHEN 'Medium' THEN 2 WHEN 'Small' THEN 3 ELSE 4 END
+      `),
+      many(`
+        SELECT
+          to_char(period_end, 'YYYY-MM') AS month,
+          tax_type,
+          COUNT(*)::int AS expected,
+          COALESCE(SUM(CASE WHEN status='Filed' AND is_late=FALSE THEN 1 ELSE 0 END), 0)::int AS on_time
+        FROM declarations
+        WHERE tax_type IN ('VAT','EXCISE')
+        GROUP BY month, tax_type
+        ORDER BY month
+      `),
+    ]);
 
   return NextResponse.json({
     success: true,
     generated_at: new Date().toISOString(),
     kpis: {
-      taxpayers,
-      active_taxpayers: activeTaxpayers,
-      declarations,
-      payments,
-      total_collected_aed: totalCollected,
-      total_arrears_aed: totalArrears,
-      arrears_cases: arrearsCount,
-      non_filer_cases: nonFilers,
+      taxpayers: Number(taxpayersRow?.c ?? 0),
+      active_taxpayers: Number(activeRow?.c ?? 0),
+      declarations: Number(declRow?.c ?? 0),
+      payments: Number(paymentsRow?.c ?? 0),
+      total_collected_aed: Number(collectedRow?.s ?? 0),
+      total_arrears_aed: Number(arrearsRow?.s ?? 0),
+      arrears_cases: Number(arrearsCountRow?.c ?? 0),
+      non_filer_cases: Number(nonFilersRow?.c ?? 0),
     },
     distributions: {
       by_emirate: byEmirate,
       by_segment: bySegment,
-      arrears_by_bucket: arrearsByBucket,
+      arrears_by_bucket: arrearsByBucket.map((r) => ({
+        age_bucket: (r as { age_bucket: string }).age_bucket,
+        cases: (r as { cases: number }).cases,
+        amount_aed: Number((r as { amount_aed: string }).amount_aed),
+      })),
       filing_trend_monthly: filingTrend,
     },
     poa1: {

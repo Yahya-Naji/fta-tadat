@@ -7,6 +7,3 @@ node_modules
 *.db-shm
 .DS_Store
 data/fta-aggregates/files/
-
-# Allow the seeded read-only DB to be committed for Vercel deploys
-!data/tadat-fta.db
