@@ -16,7 +16,7 @@ import { runAgent, type WorkflowId } from "@/lib/agents/run-agent";
 const VALID: WorkflowId[] = ["registry", "filing", "payments", "risk", "service"];
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   ctx: { params: Promise<{ id: string }> }
 ) {
   const { id } = await ctx.params;
@@ -27,7 +27,24 @@ export async function POST(
     );
   }
 
-  const result = await runAgent(id as WorkflowId);
+  // Optional JSON body carrying the TADAT evidence intake bundle + chat
+  // interview transcript.
+  let evidenceBundle: unknown;
+  let chatTranscript: unknown;
+  try {
+    const body = (await request.json()) as
+      | { evidenceBundle?: unknown; chatTranscript?: unknown }
+      | null;
+    evidenceBundle = body?.evidenceBundle;
+    chatTranscript = body?.chatTranscript;
+  } catch {
+    // no body / not JSON — fine (other agents post nothing)
+  }
+
+  const result = await runAgent(id as WorkflowId, {
+    evidenceBundle,
+    chatTranscript,
+  });
 
   return NextResponse.json({
     success: result.ok,

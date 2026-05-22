@@ -35,6 +35,12 @@ import {
   FileSpreadsheet,
   FileJson,
   X,
+  MessageSquareText,
+  Paperclip,
+  ListChecks,
+  Clock,
+  UserCheck,
+  Check,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -48,7 +54,12 @@ import {
   type IndicatorPanelData,
 } from "@/components/upload/IndicatorPanel";
 
-import { DepartmentChat } from "@/components/agents/DepartmentChat";
+import { DepartmentChat, type ChatTurn } from "@/components/agents/DepartmentChat";
+import {
+  EvidenceIntake,
+  type EvidenceBundle,
+} from "@/components/agents/EvidenceIntake";
+import { hasPlaybook } from "@/lib/tadat/evidence-requests";
 import { RiskHeatmap } from "@/components/agents/charts/RiskHeatmap";
 import { EmirateDonut } from "@/components/charts/EmirateDonut";
 import { ArrearsAgingStrip } from "@/components/charts/ArrearsAgingStrip";
@@ -115,14 +126,23 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
   const [snapshot, setSnapshot] = React.useState<SnapshotResp | null>(null);
   const [openIndicator, setOpenIndicator] =
     React.useState<IndicatorPanelData | null>(null);
+  // Layla (registry) runs the evidence-intake flow — no pre-dropped file.
+  const isRegistry = stage.id === "registry";
   const [picked, setPicked] = React.useState<PickedFile | null>(() =>
-    defaultSampleFor(stage.id),
+    stage.id === "registry" ? null : defaultSampleFor(stage.id),
   );
   /** Parsed contents of an uploaded (non-sample) file. Lets the dataset
    *  preview show real rows + apply heuristic red-flagging. */
   const [uploadedPreview, setUploadedPreview] =
     React.useState<DeptSamplePreview | null>(null);
   const [parsingUpload, setParsingUpload] = React.useState(false);
+  /** TADAT evidence intake bundle (answers + attachments) collected from the
+   *  reviewer — passed into the scoring run for the registry agent. */
+  const [evidenceBundle, setEvidenceBundle] =
+    React.useState<EvidenceBundle | null>(null);
+  /** Layla's chat interview transcript — fed into scoring alongside the
+   *  checklist bundle so answers given in chat also count. */
+  const [chatTranscript, setChatTranscript] = React.useState<ChatTurn[]>([]);
 
   // Pull pre-aggregate inputs + snapshot on mount
   React.useEffect(() => {
@@ -140,15 +160,26 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
     setLoading(true);
     setRun(null);
 
-    // Brief ingest beat so the upload feels real before the agent fires.
-    if (picked) {
+    // Brief ingest beat so the read feels real before the agent fires.
+    if (picked || isRegistry) {
       setIngesting(true);
       await new Promise((r) => setTimeout(r, 650));
       setIngesting(false);
     }
 
     try {
-      const r = await fetch(`/api/agents/${stage.id}/run`, { method: "POST" });
+      const r = await fetch(`/api/agents/${stage.id}/run`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        // Registry (Layla) scores from the evidence bundle + chat interview
+        // transcript when present; other agents post an empty body.
+        body: JSON.stringify({
+          ...(evidenceBundle ? { evidenceBundle } : {}),
+          ...(isRegistry && chatTranscript.length
+            ? { chatTranscript }
+            : {}),
+        }),
+      });
       const j = (await r.json()) as AgentRunResp;
       setRun(j);
     } catch (e) {
@@ -229,29 +260,46 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
           run={run}
           picked={picked}
           onRun={runLive}
+          evidenceMode={isRegistry}
         />
 
-        {/* Source panel — drop a file or pick a sample */}
-        <DepartmentSource
-          stage={stage}
-          picked={picked}
-          onPick={(p) => {
-            setPicked(p);
-            if (!p || p.source !== "drop") setUploadedPreview(null);
-          }}
-          onUploadedParsed={setUploadedPreview}
-          onParsingChange={setParsingUpload}
-          disabled={loading}
-        />
+        {/* Engagement + pending-tasks strip (evidence flow) */}
+        {isRegistry && (
+          <AssessmentStatusStrip bundle={evidenceBundle} parsed={parsed} run={run} />
+        )}
 
-        {/* Sample-data preview — what's inside the picked file */}
-        {picked && (
-          <SamplePreviewPanel
-            stage={stage}
-            picked={picked}
-            uploadedPreview={uploadedPreview}
-            parsingUpload={parsingUpload}
+        {/* TADAT evidence intake — Layla asks, the reviewer uploads */}
+        {hasPlaybook(stage.poa) && (
+          <EvidenceIntake
+            agentId={stage.id}
+            poa={stage.poa}
+            onBundleChange={setEvidenceBundle}
           />
+        )}
+
+        {/* Old prepared-dataset flow — kept for the non-evidence agents only */}
+        {!isRegistry && (
+          <>
+            <DepartmentSource
+              stage={stage}
+              picked={picked}
+              onPick={(p) => {
+                setPicked(p);
+                if (!p || p.source !== "drop") setUploadedPreview(null);
+              }}
+              onUploadedParsed={setUploadedPreview}
+              onParsingChange={setParsingUpload}
+              disabled={loading}
+            />
+            {picked && (
+              <SamplePreviewPanel
+                stage={stage}
+                picked={picked}
+                uploadedPreview={uploadedPreview}
+                parsingUpload={parsingUpload}
+              />
+            )}
+          </>
         )}
 
         {/* Main 2-col grid */}
@@ -270,6 +318,9 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
               rows={indicatorRows}
               onPick={setOpenIndicator}
             />
+
+            {/* Human reviewer lane (evidence flow) */}
+            {isRegistry && <ReviewerLane parsed={parsed} />}
 
             {/* Flagged records */}
             <FlaggedBlock id={stage.id} parsed={parsed} />
@@ -304,6 +355,8 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
               agentId={stage.id}
               parsed={parsed}
               inputs={inputs}
+              interviewMode={isRegistry}
+              onTranscriptChange={setChatTranscript}
             />
           </div>
         </div>
@@ -341,6 +394,7 @@ function DepartmentBanner({
   run,
   picked,
   onRun,
+  evidenceMode = false,
 }: {
   stage: SampleStage;
   score: string;
@@ -350,6 +404,7 @@ function DepartmentBanner({
   run: AgentRunResp | null;
   picked: PickedFile | null;
   onRun: () => void;
+  evidenceMode?: boolean;
 }) {
   const persona = PERSONAS[stage.id];
   const { state: wsState, handoffFromAgent } = useWorkspace();
@@ -383,6 +438,23 @@ function DepartmentBanner({
                 <span className="font-semibold text-white">{persona.name}</span>
                 <span className="text-white/65"> · {persona.role}</span>
               </p>
+              {evidenceMode && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {[
+                    "Evidence-based",
+                    "M1 · lowest-wins",
+                    "No evidence = D",
+                    "Field Guide 2025 · POA 1",
+                  ].map((t) => (
+                    <span
+                      key={t}
+                      className="inline-flex items-center rounded-full border border-white/25 bg-white/10 px-2.5 py-1 text-[10px] font-mono uppercase tracking-wider text-white/85"
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <div className="flex flex-col items-end gap-3 shrink-0">
@@ -407,7 +479,9 @@ function DepartmentBanner({
               {ingesting ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Reading {picked?.name?.slice(0, 24) ?? "file"}…
+                  {evidenceMode
+                    ? "Reading evidence…"
+                    : `Reading ${picked?.name?.slice(0, 24) ?? "file"}…`}
                 </>
               ) : loading ? (
                 <>
@@ -417,12 +491,16 @@ function DepartmentBanner({
               ) : run ? (
                 <>
                   <RefreshCw className="h-4 w-4" />
-                  Re-run {picked ? "on this file" : ""}
+                  {evidenceMode ? "Re-assess" : `Re-run ${picked ? "on this file" : ""}`}
                 </>
               ) : (
                 <>
                   <Play className="h-4 w-4" />
-                  {picked ? "Run on this file" : "Run my agent"}
+                  {evidenceMode
+                    ? "Process evidence & score"
+                    : picked
+                      ? "Run on this file"
+                      : "Run my agent"}
                 </>
               )}
             </button>
@@ -497,6 +575,245 @@ function DepartmentBanner({
   );
 }
 
+// ─── Assessment status strip — engagement + pending tasks (evidence flow) ──
+
+function AssessmentStatusStrip({
+  bundle,
+  parsed,
+  run,
+}: {
+  bundle: EvidenceBundle | null;
+  parsed: Record<string, unknown> | null;
+  run: AgentRunResp | null;
+}) {
+  const qa = bundle?.totals.questions_answered ?? 0;
+  const qt = bundle?.totals.questions ?? 0;
+  const ea = bundle?.totals.evidence_provided ?? 0;
+  const et = bundle?.totals.evidence ?? 0;
+  const inds =
+    (parsed?.indicators as Array<Record<string, unknown>> | undefined) ?? [];
+  const scored = inds.filter((i) => typeof i.score === "string").length;
+  const scoredTotal = inds.length || 3;
+  const status = run?.success
+    ? "Awaiting reviewer sign-off"
+    : run?.success === false
+      ? "Last run failed"
+      : "Not yet scored";
+
+  const items: Array<{ icon: React.ReactNode; label: string; value: string; wide?: boolean }> = [
+    { icon: <MessageSquareText className="h-3.5 w-3.5" />, label: "Questions answered", value: `${qa}/${qt}` },
+    { icon: <Paperclip className="h-3.5 w-3.5" />, label: "Evidence provided", value: `${ea}/${et}` },
+    { icon: <ListChecks className="h-3.5 w-3.5" />, label: "Dimensions scored", value: `${scored}/${scoredTotal}` },
+    { icon: <Clock className="h-3.5 w-3.5" />, label: "Status", value: status, wide: true },
+  ];
+
+  return (
+    <section className="glass-panel px-4 py-3">
+      <div className="flex items-center gap-2 mb-2">
+        <Sparkles className="h-3.5 w-3.5 text-indigo-500 dark:text-indigo-400" />
+        <p className="text-[10px] font-mono uppercase tracking-[0.18em] text-indigo-500 dark:text-indigo-400">
+          Engagement · pending tasks
+        </p>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        {items.map((it) => (
+          <div
+            key={it.label}
+            className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[0.02] px-3 py-2"
+          >
+            <p className="flex items-center gap-1.5 text-[9.5px] font-mono uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              {it.icon}
+              {it.label}
+            </p>
+            <p
+              className={`mt-1 font-bold text-gray-900 dark:text-white ${
+                it.wide ? "text-[12.5px] leading-tight" : "text-base tabular-nums"
+              }`}
+            >
+              {it.value}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ─── Assessment scorecard — evidence-based result (replaces RegistryChart) ──
+
+function AssessmentScorecard({
+  parsed,
+}: {
+  parsed: Record<string, unknown> | null;
+}) {
+  const inds =
+    (parsed?.indicators as Array<Record<string, unknown>> | undefined) ?? [];
+  const p11 = parsed?.p1_1_aggregate as string | undefined;
+  const poa = parsed?.aggregate_score as string | undefined;
+
+  return (
+    <section className="glass-panel p-5">
+      <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-indigo-500 dark:text-indigo-400 mb-1">
+        Evidence-based assessment · POA 1
+      </p>
+      <h3 className="text-base font-bold text-gray-900 dark:text-white">
+        Dimension scorecard — graded from the evidence provided
+      </h3>
+
+      {inds.length === 0 ? (
+        <p className="mt-4 text-[12.5px] text-gray-500 dark:text-gray-400 italic leading-relaxed">
+          Provide evidence above, then click{" "}
+          <span className="font-semibold">Process evidence &amp; score</span>. Each
+          dimension is graded against the TADAT Table 6 criteria — anything with no
+          evidence scores D.
+        </p>
+      ) : (
+        <>
+          <div className="mt-4 space-y-2">
+            {inds.map((i, idx) => {
+              const id = (i.id as string) ?? "—";
+              const score = (i.score as string) ?? undefined;
+              const kind = (i.dim_kind as string) ?? null;
+              const finding = (i.finding as string) ?? "";
+              return (
+                <div
+                  key={`${id}-${idx}`}
+                  className="flex items-start gap-3 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[0.02] px-3 py-2.5"
+                >
+                  <div className="shrink-0 pt-0.5">
+                    {score ? (
+                      <ScoreBadge score={score} />
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[11px] font-bold text-indigo-600 dark:text-indigo-300">
+                        {id}
+                      </span>
+                      {kind && (
+                        <span className="rounded-sm bg-gray-100 dark:bg-white/5 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                          {kind}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-[12px] text-gray-700 dark:text-gray-300 leading-snug line-clamp-2">
+                      {finding}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* M1 rollup */}
+          <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50/50 dark:bg-indigo-500/[0.06] px-4 py-3">
+            <Rollup label="P1-1 · lowest of dims" score={p11} />
+            <span className="text-gray-300 dark:text-white/20">→</span>
+            <Rollup label="POA 1 · lowest of P1-1, P1-2" score={poa} />
+            <span className="ml-auto text-[10px] font-mono text-gray-500 dark:text-gray-400">
+              M1 aggregation · Field Guide p.13
+            </span>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+function Rollup({ label, score }: { label: string; score?: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      {score ? <ScoreBadge score={score} /> : <span className="text-gray-400">—</span>}
+      <span className="text-[11px] text-gray-600 dark:text-gray-300">{label}</span>
+    </div>
+  );
+}
+
+// ─── Reviewer lane — human accept/override (visual in this POC) ─────────────
+
+function ReviewerLane({ parsed }: { parsed: Record<string, unknown> | null }) {
+  const inds =
+    (parsed?.indicators as Array<Record<string, unknown>> | undefined) ?? [];
+  const [decisions, setDecisions] = React.useState<
+    Record<string, "accepted" | "overridden">
+  >({});
+
+  return (
+    <section className="glass-panel p-5">
+      <div className="flex items-center justify-between mb-1">
+        <p className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400">
+          <UserCheck className="h-3.5 w-3.5" /> Human reviewer · sign-off
+        </p>
+        <span className="text-[10px] font-mono text-gray-400 dark:text-gray-500">
+          visual in this POC
+        </span>
+      </div>
+      <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-3">
+        Layla proposes each score from the evidence; a TADAT reviewer accepts or
+        overrides it before the assessment is final.
+      </p>
+      {inds.length === 0 ? (
+        <p className="text-[12.5px] text-gray-500 dark:text-gray-400 italic">
+          Scores appear here for review once Layla has run.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {inds.map((i, idx) => {
+            const id = (i.id as string) ?? "—";
+            const score = (i.score as string) ?? undefined;
+            const d = decisions[id];
+            return (
+              <li
+                key={`${id}-${idx}`}
+                className="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[0.02] px-3 py-2"
+              >
+                <span className="font-mono text-[11px] font-bold text-indigo-600 dark:text-indigo-300 w-14 shrink-0">
+                  {id}
+                </span>
+                {score ? (
+                  <ScoreBadge score={score} />
+                ) : (
+                  <span className="text-gray-400">—</span>
+                )}
+                <div className="ml-auto flex items-center gap-1.5">
+                  {d === "accepted" && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/50 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300">
+                      <Check className="h-3 w-3" /> Accepted
+                    </span>
+                  )}
+                  {d === "overridden" && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-amber-300/50 bg-amber-50 dark:border-amber-500/30 dark:bg-amber-500/10 px-2.5 py-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                      Overridden
+                    </span>
+                  )}
+                  <button
+                    onClick={() =>
+                      setDecisions((s) => ({ ...s, [id]: "accepted" }))
+                    }
+                    className="rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-gray-700 dark:text-gray-300 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition"
+                  >
+                    Accept
+                  </button>
+                  <button
+                    onClick={() =>
+                      setDecisions((s) => ({ ...s, [id]: "overridden" }))
+                    }
+                    className="rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-gray-700 dark:text-gray-300 hover:bg-amber-50 dark:hover:bg-amber-500/10 transition"
+                  >
+                    Override
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 // ─── BigScore ─ prominent aggregate-score block for the banner ────────────
 
 function BigScore({ score }: { score: string | undefined }) {
@@ -543,7 +860,9 @@ function SignatureChart({
   snapshot: SnapshotResp | null;
 }) {
   if (stage.id === "registry") {
-    return <RegistryChart snapshot={snapshot} />;
+    // Evidence-based result card replaces the old DB-driven registry chart
+    // (RegistryChart kept below as a non-evidence fallback / reference).
+    return <AssessmentScorecard parsed={parsed} />;
   }
   if (stage.id === "risk") {
     const risks =

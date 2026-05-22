@@ -81,17 +81,27 @@ const Indicator = z.object({
   value_large: z.number().nullable(),
 });
 
+// Registry indicators carry the evidence-based extras (dim_kind + ref) on top
+// of the shared flat Indicator shape.
+const RegistryIndicator = Indicator.extend({
+  dim_kind: z.enum(["qualitative", "quantitative", "mixed"]).nullable().optional(),
+  tadat_reference: z.string().nullable().optional(),
+  // Registry indicators don't use the all/large split — make them optional so
+  // omitting them isn't flagged as a schema warning.
+  value_all: z.number().nullish(),
+  value_large: z.number().nullish(),
+});
+
 const RegistryOutput = z.object({
   poa: z.literal(1),
   poa_name: z.string(),
-  indicators: z.array(Indicator),
+  indicators: z.array(RegistryIndicator),
   aggregate_method: z.string(),
+  p1_1_aggregate: z.string().nullable().optional(),
   aggregate_score: z.string(),
   recommendations: z.array(z.string()),
-  data_coverage: z.object({
-    taxpayer_records: z.number(),
-    period_assessed: z.string(),
-  }).nullable(),
+  // Loosened — the evidence flow reports group coverage, not record counts.
+  data_coverage: z.record(z.string(), z.unknown()).nullable(),
 });
 
 const FilingOutput = z.object({
@@ -388,6 +398,13 @@ export interface RunAgentOptions {
   /** Parsed payload from /api/upload/parse — sheet headers + sample rows
    *  + headline figures from whatever was dropped. Null if no upload. */
   uploadedFile?: unknown;
+  /** TADAT evidence intake bundle (answers + attachments per dimension),
+   *  collected on the agent page. When present, the registry agent scores
+   *  FROM this evidence rather than inferring from the database. */
+  evidenceBundle?: unknown;
+  /** Layla's chat interview transcript ([{role, content}]). Scored as
+   *  evidence alongside the bundle. */
+  chatTranscript?: unknown;
 }
 
 export async function runAgent(
@@ -399,24 +416,58 @@ export async function runAgent(
 
   const t0 = Date.now();
 
-  // 1. Pre-aggregate (Supabase)
-  const baseInputs = await spec.aggregator();
+  const hasTranscript =
+    Array.isArray(options.chatTranscript) && options.chatTranscript.length > 0;
+  const evidenceMode =
+    workflow === "registry" &&
+    (options.evidenceBundle != null || hasTranscript);
 
-  // 1b. Compose with uploaded-file context if present
-  const inputs =
-    options.uploadedFile != null
-      ? {
-          supabase_aggregates: baseInputs,
-          uploaded_file: options.uploadedFile,
-        }
-      : baseInputs;
+  // 1. Pre-aggregate (Supabase). In evidence mode the slice only corroborates
+  // P1-1-2, so a DB outage must NOT block an evidence-based assessment — we
+  // proceed with a clearly-marked unavailable slice instead.
+  let baseInputs: unknown;
+  if (evidenceMode) {
+    try {
+      baseInputs = await spec.aggregator();
+    } catch (e) {
+      baseInputs = {
+        unavailable: true,
+        reason: `registry_data_slice unavailable (DB not reachable): ${(e as Error).message}`,
+      };
+    }
+  } else {
+    baseInputs = await spec.aggregator();
+  }
 
-  // 2. Build user message — when an uploaded file is present, tell the
-  // model explicitly that the figures should reflect the user's data.
-  const fileHint = options.uploadedFile
-    ? `\n\nNOTE: The reviewer just dropped a file (see uploaded_file in the input). When the file's headlines + sections clearly differ from the Supabase aggregates, prefer the uploaded figures for the business_outcome narrative and call out the source. The TADAT band scoring remains rubric-driven on whichever signal is most defensible.`
+  // 1b. Compose inputs. Three paths:
+  //   • registry + evidence bundle → evidence-based (bundle primary, DB slice corroborates)
+  //   • uploaded file               → file context alongside the aggregates
+  //   • otherwise                    → the aggregates alone
+  let inputs: unknown;
+  if (evidenceMode) {
+    inputs = {
+      evidence_bundle: options.evidenceBundle ?? null,
+      interview_transcript: hasTranscript ? options.chatTranscript : null,
+      registry_data_slice: baseInputs,
+    };
+  } else if (options.uploadedFile != null) {
+    inputs = {
+      supabase_aggregates: baseInputs,
+      uploaded_file: options.uploadedFile,
+    };
+  } else {
+    inputs = baseInputs;
+  }
+
+  // 2. Build user message.
+  const evidenceHint = evidenceMode
+    ? `\n\nThis is an EVIDENCE-BASED assessment. Score each dimension ONLY from the evidence the FTA provided — that means BOTH evidence_bundle (checklist answers + attachments) AND interview_transcript (Layla's chat interview). Treat an answer given in the chat exactly like a checklist answer. Any dimension with no evidence in EITHER source is 'D' (insufficient evidence). Use registry_data_slice solely to corroborate P1-1-2. Cite the specific answer/file you relied on.`
     : "";
-  const userMessage = `${spec.instruction}${fileHint}\n\nINPUT JSON:\n${JSON.stringify(
+  const fileHint =
+    options.uploadedFile != null && !evidenceMode
+      ? `\n\nNOTE: The reviewer just dropped a file (see uploaded_file in the input). When the file's headlines + sections clearly differ from the Supabase aggregates, prefer the uploaded figures for the business_outcome narrative and call out the source. The TADAT band scoring remains rubric-driven on whichever signal is most defensible.`
+      : "";
+  const userMessage = `${spec.instruction}${evidenceHint}${fileHint}\n\nINPUT JSON:\n${JSON.stringify(
     inputs,
     null,
     2,
