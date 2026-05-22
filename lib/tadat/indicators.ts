@@ -23,6 +23,13 @@ export interface DimensionDefinition {
   dim_name: string;
   measures: string;           // what the dim assesses
   bands: IndicatorBandCriteria;
+  /** Assessor questions to put to the FTA for this dimension.
+   *  Lifted from the Field Guide "Assessor Question Guidance" (Table 5 etc.). */
+  questions?: string[];
+  /** The specific evidence/documents the FTA must provide for this dimension.
+   *  Lifted from the "Examples of evidence" column of the same table.
+   *  This is what Layla requests ("upload your evidence") and scores against. */
+  evidence_checklist?: string[];
 }
 
 export interface IndicatorDefinition {
@@ -36,7 +43,36 @@ export interface IndicatorDefinition {
   bands: IndicatorBandCriteria;
   field_guide_ref: string;    // "Field Guide 2025, Ch III, pg 27, 32–34"
   dimensions?: DimensionDefinition[];
+  /** For single-dimension indicators (no `dimensions[]`), the assessor
+   *  questions live here. For multi-dimension indicators they live on each
+   *  dimension instead. */
+  questions?: string[];
+  /** Evidence checklist for single-dimension indicators (see above). */
+  evidence_checklist?: string[];
 }
+
+/** POA-level "Background questions" — asked once before any dimension is
+ *  scored (Field Guide Table 5 "Background questions" row). Keyed by POA. */
+export interface BackgroundGuidance {
+  questions: string[];
+  evidence_checklist: string[];
+}
+
+export const POA_BACKGROUND: Record<number, BackgroundGuidance> = {
+  1: {
+    questions: [
+      "Under the country's tax laws: who must register in respect of the core taxes, who can register voluntarily, and who is not permitted to register?",
+      "What other government agencies are involved in registering businesses and individuals for tax purposes? What is their role, what interaction is there with the tax administration, and is registration information automatically shared between agencies?",
+      "Which organizational unit(s) of the tax administration are responsible for registering businesses and individuals and maintaining the taxpayer registration database?",
+    ],
+    evidence_checklist: [
+      "Core tax laws governing registration",
+      "Website / published guidance on registration requirements for businesses and individuals",
+      "Websites of other regulatory agencies involved in citizen, business, and corporate registration and numbering",
+      "Organizational chart of the tax administration with role descriptions of the main units",
+    ],
+  },
+};
 
 // ─── POA 1 — Integrity of the Registered Taxpayer Base ──────────────────
 
@@ -47,40 +83,74 @@ const P1_1: IndicatorDefinition = {
   poa_name: "Integrity of the Registered Taxpayer Base",
   scoring_method: "M1",
   scoring_rule:
-    "M1 — the indicator score equals the lowest of the constituent dimension scores.",
+    "M1 — the indicator score equals the lowest of the constituent dimension scores (P1-1-1, P1-1-2).",
   measures:
-    "Whether the registry contains the information needed to support tax administration core processes, and whether the database can be kept current and accurate.",
+    "Whether the registration database holds adequate, accurate taxpayer information and supports effective interactions with taxpayers, intermediaries, and other government agencies.",
   bands: {
-    A: "Registry is comprehensive, accurate, and supported by routine integrity checks across all major taxes; sub-second access for officers; reliable cross-government feeds.",
-    B: "Registry covers all core taxes with documented integrity checks; minor data-quality issues do not materially affect downstream POAs.",
-    C: "Registry covers all core taxes but with measurable accuracy gaps (duplicates, missing contact, dormant-flag mismatches) that distort filing and arrears rates.",
-    D: "Registry coverage incomplete or accuracy gaps so large that filing, payment, and risk segmentation cannot be trusted.",
+    A: "Both dimensions score A — comprehensive fields on a central computerised database with a high-integrity TIN and a full-featured IT subsystem, kept accurate by routine, audited cleansing procedures.",
+    B: "Lowest dimension is B (e.g. multiple linked TINs, no MFA, or post-registration ID checks at smaller cross-checking scale).",
+    C: "Lowest dimension is C (decentralised database / some fields not recorded, or accuracy procedures applied only ad hoc).",
+    D: "Lowest dimension is D — requirements for C not met, or evidence insufficient to assess.",
   },
-  field_guide_ref: "Field Guide 2025, Ch III, pp 27 + 32–34",
+  field_guide_ref: "Field Guide 2025, Ch III — Table 5 (pp 27–30), Table 6 (pp 31–33)",
   dimensions: [
     {
       dim_id: "P1-1-1",
-      dim_name: "Adequacy of information in the database",
+      dim_name:
+        "Adequacy of information held + extent the registration database supports effective interactions",
       measures:
-        "Does the registry capture the data fields required to identify taxpayers, contact them, and link them to their declarations + payments?",
+        "Whether the database captures the required identifying/contact/obligation fields, runs on a central high-integrity-TIN system, and whether the registration IT subsystem provides the features needed to interact with taxpayers, intermediaries, and other agencies (Box 1).",
       bands: {
-        A: "All required fields captured for 100% of active TRNs; cross-validated against national ID.",
-        B: "All required fields for ≥95% of active TRNs; small share of missing contact info.",
-        C: "5–15% of TRNs missing at least one required field (contact, address, segment, etc.).",
-        D: "More than 15% of TRNs incomplete or unverified.",
+        // Field Guide Table 6, pp 31–32
+        A: "All present: (i) required fields held — individuals: full name, address, contact details, gender, DOB, intermediary, filing/payment obligations; businesses: full name, business/registered + postal address, contact details, website, incorporation/registration date, nature of business activity, associated/related entities + beneficial owners, segment, industry sector, intermediary, filing/payment obligations; (ii) a central national computerised database; (iii) each taxpayer has a unique high-integrity TIN; (iv) the IT subsystem interfaces with other subsystems, gives a whole-of-taxpayer view across core taxes, allows deactivation/deregistration with restorable archiving, generates registration management information, provides an audit trail of access + changes, and offers secure online self-service with multi-factor authentication.",
+        B: "As A, except taxpayers hold more than one high-integrity TIN (linked within the database) and/or secure online access does not require multi-factor authentication.",
+        C: "As A, except details such as website, gender, or beneficial owner may not be recorded; the database is computerised but may be decentralised across sites (with TINs linked within each decentralised database).",
+        D: "Requirements for a C or higher are not met, OR evidence to objectively assess the dimension is insufficient or unavailable.",
       },
+      questions: [
+        "For individuals, does the registration database hold: full name; address; contact details (telephone, email of the taxpayer and/or intermediary); date of birth; gender; and the filing & payment obligations for each core tax registered?",
+        "For businesses, does it hold: full name; business and postal address; contact details (telephone, email, website); names and TINs of associated/related parties, grouped entities (incl. subsidiaries) and beneficial owners / persons with significant control; filing & payment obligations per core tax; date of incorporation or business registration; nature of business activity / industry sector (e.g. ISIC); and taxpayer segment (small/medium/large)?",
+        "Is the registration database computerised or manual? Is it centralised (a single national database) or decentralised across regions/sites?",
+        "What numbering system identifies taxpayers — a single unique high-integrity number used across all core taxes, or more than one (and are they linked)? Does the TIN carry a self-validating check digit?",
+        "Does the registration IT subsystem: integrate with other subsystems (filing/payment); give frontline staff a whole-of-taxpayer view across all core taxes; allow deactivation of dormant registrations; allow deregistration and archiving that can be restored; generate registration management information; provide an audit trail of user access and changes; and provide secure online access to register and update details — with multi-factor authentication?",
+      ],
+      evidence_checklist: [
+        "Field observation of the identifying/other information held for individuals and businesses",
+        "The tax registration application form (and TIN issuance form)",
+        "Documented high-level map of the IT system and registration database configuration",
+        "Numbering-system policy / procedural documentation / IT specifications",
+        "Demonstration of the IT subsystem by frontline staff",
+        "Examples of registration management-information reports",
+        "The taxpayer portal (online registration + self-update)",
+        "Questionnaire Table 2 — Movements in the Taxpayer Register",
+      ],
     },
     {
       dim_id: "P1-1-2",
-      dim_name: "System features that facilitate database accuracy",
+      dim_name: "Accuracy of information held in the registration database",
       measures:
-        "Are there automated duplicate-detection, dormant-flag, and cross-system reconciliation routines running on the registry?",
+        "Whether documented procedures keep the active register accurate — removing inactive/duplicate/invalid records, verifying identity before registration, and cross-checking against third-party sources — with audit evidence of confidence in that accuracy.",
       bands: {
-        A: "Automated checks run continuously; flags are routed to officers with SLAs; backlog ≤ 1 week.",
-        B: "Automated checks run on a regular schedule; flags reviewed periodically.",
-        C: "Some automated checks exist; many duplicates / dormant-active mismatches remain unresolved.",
-        D: "Mostly manual or no systematic accuracy checks.",
+        // Field Guide Table 6, pp 32–33
+        A: "All present: (i) documented procedures applied routinely to (a) identify + remove inactive/duplicate/invalid records and deactivate/flag dormant ones; (b) ensure applications are authentic, with proof-of-identity checks before registration is finalised; (c) verify accuracy via large-scale automated cross-checks against external agencies (registrar of companies, property cadastre, utilities, licensing, social security); and (ii) internal/external audit indicates a high level of confidence in registry accuracy for all core taxes.",
+        B: "As A, except proof-of-identity checks for low-risk cases are carried out after registration, and cross-checking against other agencies is done on a smaller scale (e.g. case-by-case).",
+        C: "As B but the documented procedures are applied only on an ad hoc basis; internal/external audit indicates a lower level of confidence (some reservations being addressed).",
+        D: "Requirements for a C or higher are not met, OR evidence to objectively assess the dimension is insufficient or unavailable.",
       },
+      questions: [
+        "Do documented national procedures exist to maintain the accuracy of the active register by identifying and removing inactive taxpayers (deceased/defunct), duplicate records, and false/invalid registrants — and are they applied routinely or only ad hoc?",
+        "Do procedures ensure registration applications are authentic and applicants meet the legal requirements? Is proof of identity verified before registration is finalised (given VAT and income tax are refund-fraud targets), and how — electronic verification against external databases, manual paper/face-to-face checks, or a combination?",
+        "Is information cross-checked against third-party sources (registrar of companies, property cadastre, utilities, licensing authorities) to keep it up to date? Is this routine or ad hoc, and done at large scale using automated processes? How is the accuracy of that third-party data itself established?",
+        "What procedures review taxpayers who have failed to file in successive periods and update the register where they have become economically inactive or are no longer required to file?",
+        "To what extent does the database give certainty about the number of active taxpayers per core tax? Has internal audit examined registry accuracy in the past 1–2 years (findings, recommendations, implementation)? Has the external auditor examined it?",
+      ],
+      evidence_checklist: [
+        "Documented procedures: removal of inactive/duplicate/invalid records",
+        "Documented procedures: proof-of-identity checks to prevent bogus registrations",
+        "Documented procedures: use of third-party sources to verify accuracy",
+        "Reports/management statistics of taxpayers removed over the past 1–2 years (evidence of regular planned cleansing)",
+        "Internal or external audit reports on the accuracy and reliability of the registration database",
+      ],
     },
   ],
 };
@@ -91,16 +161,30 @@ const P1_2: IndicatorDefinition = {
   poa: 1,
   poa_name: "Integrity of the Registered Taxpayer Base",
   scoring_method: "M1",
-  scoring_rule: "M1 — single dimension; the indicator score is that score.",
+  scoring_rule: "M1 — single dimension; the indicator score is that dimension's score.",
   measures:
-    "Whether the administration knows how many taxpayers should be registered but aren't, and what programmes exist to find them.",
+    "The extent of initiatives to detect businesses and individuals who are required to register but fail to do so.",
   bands: {
-    A: "Routine cross-checks against external sources (licensing, banking, customs, social security); active unregistered-business detection programme with documented results.",
-    B: "Some cross-checking with external sources; ad-hoc unregistered-business programmes.",
-    C: "Limited or sporadic cross-checking; no systematic estimate of the unregistered base.",
-    D: "No knowledge of the potential taxpayer base.",
+    // Field Guide Table 6, p 33
+    A: "(i) The tax administration's annual operational plans specify detection initiatives including at least (a) systematic use of internal and third-party information sources (e.g. Customs, other government agencies, business registration/licensing, e-commerce platforms, social media, labour-force data, work-visa data, foreign jurisdictions) and (b) a programme of targeted risk-based activities using intelligence and/or technologies such as geolocalisation or remote sensing; and (ii) there is evidence (documented reports) of actions and results during the past year.",
+    B: "As A but limited to the systematic third-party information sources (no targeted risk-based programme element); evidence of actions and results during the past year.",
+    C: "Evidence exists only of ad hoc actions and results during the past year in detecting unregistered taxpayers.",
+    D: "Requirements for a C or higher are not met, OR evidence to objectively assess the dimension is insufficient or unavailable.",
   },
-  field_guide_ref: "Field Guide 2025, Ch III, pp 31 + 34",
+  field_guide_ref: "Field Guide 2025, Ch III — Table 5 (p 30), Table 6 (p 33)",
+  questions: [
+    "Does the administration use third-party information to identify new business start-ups, digital service providers, online trading platforms, and economic activity of existing businesses that have failed to register?",
+    "Does it use technology such as geolocalisation and/or remote-sensing imagery to identify potentially unregistered taxpayers?",
+    "Does it review changes to the taxpayer register where the base has broadened (e.g. a VAT-threshold reduction) to identify new taxpayers and ensure they registered for all obligations?",
+    "Does it make intelligence-led, risk-based unannounced visits to commercial districts to detect unregistered businesses and/or workers? What sources of intelligence drive those visits?",
+    "Does it analyse online trading platforms to identify potentially non-registered persons or businesses?",
+    "For initiatives undertaken in the past 1–2 years, were the outcomes monitored and reported upon?",
+  ],
+  evidence_checklist: [
+    "Documented detection initiatives undertaken and planned",
+    "Use of third-party sources (Customs, other government agencies, business registration/licensing, e-commerce platforms, social media, labour-force data, work-visa data, foreign-jurisdiction information)",
+    "Management statistics of taxpayers added to the register over the past 1–2 years as a result of detection initiatives",
+  ],
 };
 
 // ─── POA 2 — Effective Risk Management ──────────────────────────────────

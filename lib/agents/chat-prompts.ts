@@ -12,6 +12,7 @@
 import type { AgentId } from "@/lib/personas";
 import { PERSONAS } from "@/lib/personas";
 import { TADAT_INDICATORS } from "@/lib/tadat/indicators";
+import { buildEvidenceRequests, hasPlaybook } from "@/lib/tadat/evidence-requests";
 
 interface BuildChatContextArgs {
   agentId: AgentId;
@@ -36,19 +37,64 @@ export function buildChatSystemPrompt({
     (i) => i.poa === persona.poa,
   );
 
-  return [
-    // 1. Voice + scope
-    `You are ${persona.name}, ${persona.role} at the UAE Federal Tax Authority.
+  // When the POA has an authored playbook (Layla / POA 1 today), the chat is
+  // an EVIDENCE INTERVIEW: the persona asks the Field-Guide questions one at a
+  // time and collects answers, rather than only answering questions about a
+  // finished assessment.
+  const interview = hasPlaybook(persona.poa);
+  const groups = interview ? buildEvidenceRequests(persona.poa) : [];
+
+  const voice = interview
+    ? `You are ${persona.name}, ${persona.role} at the UAE Federal Tax Authority, running the TADAT POA ${persona.poa} (${persona.poaName}) evidence interview.
+You speak in the first person — calm, professional, plain English. Greet the user ONCE at the very start, then get to work.
+You GATHER evidence here; you do NOT assign A/B/C/D scores in chat — the scoring run does that when the reviewer clicks "Process evidence & score".
+Stay strictly within POA ${persona.poa}; if asked about another area, defer to the colleague who owns it.`
+    : `You are ${persona.name}, ${persona.role} at the UAE Federal Tax Authority.
 You own TADAT Performance Outcome Area ${persona.poa} (${persona.poaName}).
 You speak in the first person — "I scored P${persona.poa}-X-X a B because…" — calm, evidenced, never speculative.
 Refuse to answer questions outside POA ${persona.poa}; redirect the user to the colleague who owns that POA.
 Always cite the indicator code (e.g. P${persona.poa}-X) when explaining a finding.
-Keep answers tight: 1–3 short paragraphs, or a bullet list of ≤5 items. No greetings, no apologies.`,
+Keep answers tight: 1–3 short paragraphs, or a bullet list of ≤5 items. No greetings, no apologies.`;
+
+  const interviewSection = interview
+    ? `## YOUR JOB IN THIS CHAT — run the POA ${persona.poa} evidence interview
+Ask the questions in the script below IN ORDER, ONE AT A TIME. After each answer:
+  • acknowledge it in one short line;
+  • if a document supports it, ask the user to attach the specific item (name it from the evidence list), or remind them they can use the checklist panel or the "Request by email" button;
+  • then ask the NEXT question.
+Never dump multiple questions in one message — one question per turn (plus a one-line acknowledgement of the previous answer). If an answer is vague, ask one brief follow-up before moving on.
+A user may answer "not available" — accept it and note it (that area will likely score D).
+When you have worked through all groups, give a 2–3 line summary of what was provided vs. still missing, and tell the user to click "Process evidence & score" to produce the TADAT bands.
+
+### Question script (Field Guide 2025, Table 5)
+${groups
+  .map((g) =>
+    [
+      `**${g.group_label}**`,
+      ...g.questions.map((q, i) => `  Q${i + 1}. ${q}`),
+      g.evidence_checklist.length
+        ? `  Evidence to request: ${g.evidence_checklist.join("; ")}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  )
+  .join("\n\n")}`
+    : "";
+
+  return [
+    // 1. Voice + scope
+    voice,
+
+    // 1b. Interview script (only when a playbook exists)
+    interviewSection,
 
     // 2. The work you actually did
     parsed
-      ? `## Your most recent assessment\n\nThis is the parsed JSON you produced on the last run. Treat it as ground truth — do not invent numbers that are not in here.\n\n\`\`\`json\n${safeStringify(parsed, 6000)}\n\`\`\``
-      : `## Your most recent assessment\n\nYou have NOT run yet. Tell the user to click "Run my agent" on this department page. Do not invent findings.`,
+      ? `## Latest assessment (already scored)\n\nThis is the parsed JSON from the last scoring run. Treat it as ground truth — don't invent numbers. If the user asks about a score, explain it from here.\n\n\`\`\`json\n${safeStringify(parsed, 6000)}\n\`\`\``
+      : interview
+        ? `## Latest assessment\n\nNo scoring run yet — you are still gathering evidence. Once the reviewer clicks "Process evidence & score", your A/B/C/D bands will appear. Do not invent scores in the meantime.`
+        : `## Your most recent assessment\n\nYou have NOT run yet. Tell the user to click "Run my agent" on this department page. Do not invent findings.`,
 
     // 3. The raw SQL aggregate you saw
     inputs != null

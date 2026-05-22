@@ -23,11 +23,21 @@ interface ChatMessage {
   error?: boolean;
 }
 
+export interface ChatTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
 interface DepartmentChatProps {
   agentId: AgentId;
   parsed: Record<string, unknown> | null;
   inputs: unknown;
   className?: string;
+  /** When true, the chat runs as an evidence INTERVIEW: enabled before any
+   *  scoring run, and Layla asks the playbook questions. */
+  interviewMode?: boolean;
+  /** Emits the running transcript so the parent can feed it into scoring. */
+  onTranscriptChange?: (turns: ChatTurn[]) => void;
 }
 
 export function DepartmentChat({
@@ -35,6 +45,8 @@ export function DepartmentChat({
   parsed,
   inputs,
   className,
+  interviewMode = false,
+  onTranscriptChange,
 }: DepartmentChatProps) {
   const persona = PERSONAS[agentId];
   const storageKey = `qtax.chat.${agentId}.v1`;
@@ -78,8 +90,26 @@ export function DepartmentChat({
     }
   }, [messages]);
 
+  // Emit transcript to the parent so the scoring run can read the interview.
+  React.useEffect(() => {
+    if (!onTranscriptChange) return;
+    onTranscriptChange(
+      messages
+        .filter((m) => !m.error && m.content.trim())
+        .map((m) => ({ role: m.role, content: m.content })),
+    );
+  }, [messages, onTranscriptChange]);
+
   // Suggested first prompts when chat is empty
   const SUGGESTIONS = React.useMemo(() => {
+    if (interviewMode) {
+      return [
+        `Start the POA ${persona.poa} interview`,
+        `What evidence do you need from me?`,
+        `Let's start with accuracy (P1-1-2)`,
+        `I'll attach documents in the checklist instead`,
+      ];
+    }
     const code = `P${persona.poa}`;
     return [
       `Why did you score the overall POA the way you did?`,
@@ -87,7 +117,7 @@ export function DepartmentChat({
       `Show me the three weakest dimensions in your work.`,
       `What would it take to lift your worst indicator one band?`,
     ];
-  }, [persona.poa]);
+  }, [persona.poa, interviewMode]);
 
   async function send(text: string) {
     if (!text.trim() || sending) return;
@@ -237,6 +267,8 @@ export function DepartmentChat({
   }
 
   const hasContext = parsed !== null;
+  // Interview mode enables the chat before any scoring run.
+  const chatEnabled = interviewMode || hasContext;
 
   return (
     <div
@@ -280,7 +312,7 @@ export function DepartmentChat({
         className="flex-1 overflow-y-auto px-4 py-3 space-y-3"
         aria-live="polite"
       >
-        {!hasContext && (
+        {!hasContext && !interviewMode && (
           <div className="rounded-lg border border-amber-300 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-3">
             <div className="flex items-start gap-2">
               <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-300 shrink-0 mt-0.5" />
@@ -298,7 +330,7 @@ export function DepartmentChat({
           </div>
         )}
 
-        {messages.length === 0 && hasContext && (
+        {messages.length === 0 && chatEnabled && (
           <div className="space-y-3">
             <div className="rounded-lg border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50/60 dark:bg-indigo-500/10 p-3">
               <div className="flex items-start gap-2">
@@ -308,9 +340,21 @@ export function DepartmentChat({
                     Hi — I&apos;m {persona.name}.
                   </p>
                   <p className="text-[11.5px] text-gray-700 dark:text-gray-300 leading-snug mt-0.5">
-                    Ask me anything about my POA {persona.poa} assessment —
-                    why I gave a score, what evidence drove it, or what it
-                    would take to move a band.
+                    {interviewMode ? (
+                      <>
+                        I&apos;ll walk you through the POA {persona.poa} evidence
+                        questions one at a time. Answer here (or use the checklist
+                        above), then click{" "}
+                        <strong>Process evidence &amp; score</strong> when we&apos;re
+                        done. Anything left unanswered scores a D.
+                      </>
+                    ) : (
+                      <>
+                        Ask me anything about my POA {persona.poa} assessment —
+                        why I gave a score, what evidence drove it, or what it
+                        would take to move a band.
+                      </>
+                    )}
                   </p>
                 </div>
               </div>
@@ -359,11 +403,13 @@ export function DepartmentChat({
                 send(draft);
               }
             }}
-            disabled={!hasContext || sending}
+            disabled={!chatEnabled || sending}
             rows={1}
             placeholder={
-              hasContext
-                ? `Ask ${persona.name}…`
+              chatEnabled
+                ? interviewMode
+                  ? `Answer ${persona.name}…`
+                  : `Ask ${persona.name}…`
                 : "Run the agent first to enable chat"
             }
             className="flex-1 resize-none rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-black/20 px-3 py-2 text-[12.5px] text-gray-900 dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:opacity-50 max-h-32"
@@ -380,7 +426,7 @@ export function DepartmentChat({
           ) : (
             <button
               type="submit"
-              disabled={!hasContext || !draft.trim()}
+              disabled={!chatEnabled || !draft.trim()}
               className="inline-flex items-center justify-center h-9 w-9 rounded-lg bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500 text-white shadow-md shadow-violet-500/25 hover:opacity-95 disabled:opacity-40 disabled:cursor-not-allowed transition shrink-0"
               aria-label="Send"
             >
@@ -389,7 +435,9 @@ export function DepartmentChat({
           )}
         </div>
         <p className="mt-1.5 text-[9.5px] font-mono text-gray-400 dark:text-gray-500">
-          {persona.name} sees her latest assessment + pre-aggregate inputs.
+          {interviewMode
+            ? `${persona.name} is collecting evidence for scoring.`
+            : `${persona.name} sees her latest assessment + pre-aggregate inputs.`}{" "}
           Enter to send · Shift+Enter for newline.
         </p>
       </form>
