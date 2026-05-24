@@ -21,7 +21,9 @@ import {
   FileText,
   Inbox,
   Mail,
+  Wand2,
 } from "lucide-react";
+import { POA1_SAMPLE } from "@/lib/tadat/poa1-sample";
 
 import { PersonaAvatar } from "@/components/PersonaAvatar";
 import { PERSONAS, type AgentId } from "@/lib/personas";
@@ -99,6 +101,50 @@ export function EvidenceIntake({ agentId, poa, onBundleChange }: EvidenceIntakeP
     lines.push(`Kind regards,`, `${persona.name} · ${persona.role}`);
     return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(lines.join("\n"))}`;
   }, [groups, poa, persona]);
+
+  // Demo helper — fill the checklist from the bundled sample answers.
+  const sampleAvailable = groups.some((g) => POA1_SAMPLE[g.group_id]);
+  function applySample() {
+    const nextA: AnswerMap = {};
+    const nextE: EvidenceMap = {};
+    for (const g of groups) {
+      const s = POA1_SAMPLE[g.group_id];
+      if (!s) continue;
+      g.questions.forEach((_, i) => {
+        if (s.answers[i]) nextA[`${g.group_id}::q${i}`] = s.answers[i];
+      });
+      g.evidence_checklist.forEach((_, i) => {
+        const ev = s.evidence[i];
+        if (ev && (ev.file_name || ev.note)) {
+          nextE[`${g.group_id}::e${i}`] = {
+            file_name: ev.file_name,
+            note: ev.note,
+          };
+        }
+      });
+    }
+    setAnswers(nextA);
+    setEvidence(nextE);
+    setOpen(Object.fromEntries(groups.map((g) => [g.group_id, true])));
+  }
+
+  // Per-item email request — asks the business unit for ONE specific document.
+  function buildItemMailto(item: string, groupLabel: string): string {
+    const subject = `TADAT POA ${poa} — Evidence request: ${item}`;
+    const body = [
+      "Dear Business Unit,",
+      "",
+      `For the TADAT POA ${poa} assessment (${persona.poaName}), please provide the following evidence under ${groupLabel}:`,
+      "",
+      `  • ${item}`,
+      "",
+      "Please reply with the document attached.",
+      "",
+      "Kind regards,",
+      `${persona.name} · ${persona.role}`,
+    ].join("\n");
+    return `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
 
   const [answers, setAnswers] = React.useState<AnswerMap>({});
   const [evidence, setEvidence] = React.useState<EvidenceMap>({});
@@ -196,12 +242,23 @@ export function EvidenceIntake({ agentId, poa, onBundleChange }: EvidenceIntakeP
 
         {/* Actions + progress */}
         <div className="flex flex-col items-end gap-2 shrink-0">
-          <a
-            href={mailtoHref}
-            className="inline-flex items-center gap-1.5 rounded-full border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-500/10 px-3 py-1.5 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition"
-          >
-            <Mail className="h-3.5 w-3.5" /> Request by email
-          </a>
+          <div className="flex items-center gap-2">
+            {sampleAvailable && (
+              <button
+                type="button"
+                onClick={applySample}
+                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-500/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-500/20 transition"
+              >
+                <Wand2 className="h-3.5 w-3.5" /> Load sample answers
+              </button>
+            )}
+            <a
+              href={mailtoHref}
+              className="inline-flex items-center gap-1.5 rounded-full border border-indigo-300 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-500/10 px-3 py-1.5 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 transition"
+            >
+              <Mail className="h-3.5 w-3.5" /> Request by email
+            </a>
+          </div>
           <div className="flex items-center gap-2">
             <ProgressChip
               icon={<MessageSquareText className="h-3 w-3" />}
@@ -249,6 +306,7 @@ export function EvidenceIntake({ agentId, poa, onBundleChange }: EvidenceIntakeP
             setEvidenceNote={(key, note) =>
               setEvidence((s) => ({ ...s, [key]: { ...s[key], note } }))
             }
+            itemMailto={buildItemMailto}
           />
         ))}
       </div>
@@ -267,6 +325,7 @@ function GroupCard({
   setAnswer,
   setEvidenceFile,
   setEvidenceNote,
+  itemMailto,
 }: {
   group: EvidenceRequestGroup;
   open: boolean;
@@ -276,6 +335,7 @@ function GroupCard({
   setAnswer: (key: string, val: string) => void;
   setEvidenceFile: (key: string, file: File | null) => void;
   setEvidenceNote: (key: string, note: string) => void;
+  itemMailto: (item: string, groupLabel: string) => string;
 }) {
   const qDone = group.questions.filter(
     (_, i) => (answers[`${group.group_id}::q${i}`] ?? "").trim(),
@@ -377,6 +437,7 @@ function GroupCard({
                     note={rec?.note ?? ""}
                     onFile={(f) => setEvidenceFile(key, f)}
                     onNote={(n) => setEvidenceNote(key, n)}
+                    requestHref={itemMailto(item, group.group_label)}
                   />
                 );
               })}
@@ -397,6 +458,7 @@ function EvidenceRow({
   note,
   onFile,
   onNote,
+  requestHref,
 }: {
   item: string;
   provided: boolean;
@@ -404,6 +466,7 @@ function EvidenceRow({
   note: string;
   onFile: (f: File | null) => void;
   onNote: (n: string) => void;
+  requestHref: string;
 }) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [showNote, setShowNote] = React.useState(false);
@@ -455,6 +518,14 @@ function EvidenceRow({
             <MessageSquareText className="h-3 w-3" />
             Note
           </button>
+          <a
+            href={requestHref}
+            title="Request this evidence by email"
+            className="inline-flex items-center gap-1 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-white/5 px-2.5 py-1 text-[11px] font-medium text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 hover:text-indigo-700 dark:hover:text-indigo-300 transition"
+          >
+            <Mail className="h-3 w-3" />
+            Email
+          </a>
           <input
             ref={inputRef}
             type="file"

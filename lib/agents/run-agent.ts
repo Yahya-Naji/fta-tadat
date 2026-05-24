@@ -90,6 +90,19 @@ const RegistryIndicator = Indicator.extend({
   // omitting them isn't flagged as a schema warning.
   value_all: z.number().nullish(),
   value_large: z.number().nullish(),
+  // Per-evidence appraisal — Layla's verdict on each item the FTA provided.
+  evidence_review: z
+    .array(
+      z.object({
+        item: z.string(),
+        relevance: z
+          .enum(["relevant", "partial", "not_relevant", "insufficient"])
+          .nullable()
+          .optional(),
+        comment: z.string(),
+      }),
+    )
+    .nullish(),
 });
 
 const RegistryOutput = z.object({

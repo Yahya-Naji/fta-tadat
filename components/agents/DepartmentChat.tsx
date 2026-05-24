@@ -38,6 +38,9 @@ interface DepartmentChatProps {
   interviewMode?: boolean;
   /** Emits the running transcript so the parent can feed it into scoring. */
   onTranscriptChange?: (turns: ChatTurn[]) => void;
+  /** One-shot assistant message appended after a scoring run (seq must
+   *  strictly increase to trigger a new append). */
+  injection?: { seq: number; text: string } | null;
 }
 
 export function DepartmentChat({
@@ -47,6 +50,7 @@ export function DepartmentChat({
   className,
   interviewMode = false,
   onTranscriptChange,
+  injection = null,
 }: DepartmentChatProps) {
   const persona = PERSONAS[agentId];
   const storageKey = `qtax.chat.${agentId}.v1`;
@@ -58,6 +62,7 @@ export function DepartmentChat({
   const abortRef = React.useRef<AbortController | null>(null);
   const listRef = React.useRef<HTMLDivElement | null>(null);
   const inputRef = React.useRef<HTMLTextAreaElement | null>(null);
+  const injectedSeqRef = React.useRef(0);
 
   // Hydrate per-agent history
   React.useEffect(() => {
@@ -99,6 +104,17 @@ export function DepartmentChat({
         .map((m) => ({ role: m.role, content: m.content })),
     );
   }, [messages, onTranscriptChange]);
+
+  // Append the post-run result summary into the channel (once per run).
+  React.useEffect(() => {
+    if (!hydrated || !injection) return;
+    if (injection.seq <= injectedSeqRef.current) return;
+    injectedSeqRef.current = injection.seq;
+    setMessages((prev) => [
+      ...prev,
+      { role: "assistant", content: injection.text, ts: Date.now() },
+    ]);
+  }, [injection, hydrated]);
 
   // Suggested first prompts when chat is empty
   const SUGGESTIONS = React.useMemo(() => {

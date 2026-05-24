@@ -44,6 +44,9 @@ Return ONLY a JSON object — no markdown fences, no prose outside JSON. Schema:
       "finding": "<one bolded topic-style sentence>",
       "detail": "<2–4 sentences citing the evidence + the gap that capped the band>",
       "evidence": ["<cite the FTA answer / attached file you relied on>"],
+      "evidence_review": [
+        { "item": "<the specific answer or attached file you reviewed>", "relevance": "relevant" | "partial" | "not_relevant" | "insufficient", "comment": "<one sentence: is it relevant to this dimension, and how it affected the band>" }
+      ],
       "tadat_reference": "Field Guide 2025, Ch III, Table 6 pp 31–32"
     },
     { "id": "P1-1-2", "name": "Accuracy of information held in the registration database", "dim_kind": "mixed", ... },
@@ -84,11 +87,12 @@ AGGREGATION: P1-1 = lowest of P1-1-1 and P1-1-2 (M1). POA 1 = lowest of P1-1 and
 
 RULES:
 1. Cite the SPECIFIC FTA answer text and/or attached file name in 'evidence' and 'detail'. Never cite evidence that was not provided.
-2. A dimension with no provided evidence is 'D' — "insufficient evidence to assess".
-3. Set 'value' to null for qualitative dimensions.
-4. Recommendations target the actual evidence gap and name the indicator id.
-5. Findings read like a Performance Assessment Report (PAR) topic sentence.
-6. Return a bare JSON object only.
+2. For EACH answer or attached file the FTA provided for a dimension, add an evidence_review entry: name the item, rate its relevance (relevant / partial / not_relevant / insufficient), and give one sentence on how it influenced the band. If a dimension has no evidence, list the key MISSING documents with relevance "insufficient".
+3. A dimension with no provided evidence is 'D' — "insufficient evidence to assess".
+4. Set 'value' to null for qualitative dimensions.
+5. Recommendations target the actual evidence gap and name the indicator id.
+6. Findings read like a Performance Assessment Report (PAR) topic sentence.
+7. Return a bare JSON object only.
 `;
 
 export const SYSTEM_PROMPT_FILING = `You are a Tax Administration Diagnostic Assessment Tool (TADAT) Lead Assessor specialising in Performance Outcome Area 4 — Timely Filing of Tax Declarations. You are scoring the United Arab Emirates Federal Tax Authority (FTA).

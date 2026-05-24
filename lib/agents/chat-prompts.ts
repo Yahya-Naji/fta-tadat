@@ -43,11 +43,16 @@ export function buildChatSystemPrompt({
   // finished assessment.
   const interview = hasPlaybook(persona.poa);
   const groups = interview ? buildEvidenceRequests(persona.poa) : [];
+  const scored = parsed != null; // a scoring run has produced results
 
   const voice = interview
-    ? `You are ${persona.name}, ${persona.role} at the UAE Federal Tax Authority, running the TADAT POA ${persona.poa} (${persona.poaName}) evidence interview.
+    ? `You are ${persona.name}, ${persona.role} at the UAE Federal Tax Authority, running the TADAT POA ${persona.poa} (${persona.poaName}) evidence assessment.
 You speak in the first person — calm, professional, plain English. Greet the user ONCE at the very start, then get to work.
-You GATHER evidence here; you do NOT assign A/B/C/D scores in chat — the scoring run does that when the reviewer clicks "Process evidence & score".
+${
+  scored
+    ? `A scoring run is complete. You can now EXPLAIN the scores, your per-evidence review (what each item was worth), and the underlying data when asked — and still gather more evidence if the user wants to add some.`
+    : `You GATHER evidence here; you do NOT assign A/B/C/D scores in chat — the scoring run does that when the reviewer clicks "Process evidence & score".`
+}
 Stay strictly within POA ${persona.poa}; if asked about another area, defer to the colleague who owns it.`
     : `You are ${persona.name}, ${persona.role} at the UAE Federal Tax Authority.
 You own TADAT Performance Outcome Area ${persona.poa} (${persona.poaName}).
@@ -89,16 +94,21 @@ ${groups
     // 1b. Interview script (only when a playbook exists)
     interviewSection,
 
-    // 2. The work you actually did
+    // 2a. Extracted scores + evidence review (never truncated — quote these)
     parsed
-      ? `## Latest assessment (already scored)\n\nThis is the parsed JSON from the last scoring run. Treat it as ground truth — don't invent numbers. If the user asks about a score, explain it from here.\n\n\`\`\`json\n${safeStringify(parsed, 6000)}\n\`\`\``
+      ? extractScoreSummary(parsed)
       : interview
         ? `## Latest assessment\n\nNo scoring run yet — you are still gathering evidence. Once the reviewer clicks "Process evidence & score", your A/B/C/D bands will appear. Do not invent scores in the meantime.`
         : `## Your most recent assessment\n\nYou have NOT run yet. Tell the user to click "Run my agent" on this department page. Do not invent findings.`,
 
-    // 3. The raw SQL aggregate you saw
+    // 2b. Full parsed JSON (trimmed — for deep follow-ups)
+    parsed
+      ? `## Full assessment JSON (reference)\n\nTreat as ground truth — never invent numbers not present here.\n\n\`\`\`json\n${safeStringify(parsed, 4000)}\n\`\`\``
+      : "",
+
+    // 3. The data / inputs you scored from
     inputs != null
-      ? `## Pre-aggregated SQL inputs you received\n\nThis is the deterministic aggregate the system passed to you before scoring. Use it to answer "what was the raw value" questions.\n\n\`\`\`json\n${safeStringify(inputs, 3000)}\n\`\`\``
+      ? `## Data + evidence you scored from\n\nThis is exactly what you received: the evidence the FTA provided (checklist answers + attachments and/or the chat interview) and the registry data slice. When the user asks about the DATA or which evidence was relevant, LIST the specific figures and items from here — never invent values.\n\n\`\`\`json\n${safeStringify(inputs, 3500)}\n\`\`\``
       : "",
 
     // 4. TADAT field-guide reference for your POA
@@ -132,12 +142,62 @@ ${groups
     `## Style
 - Always reference indicator codes (P${persona.poa}-X-X) — they're how reviewers verify your claims.
 - When asked "why a C", quote the relevant band criterion + cite the evidence line from your assessment.
+- **When asked about the DATA, the figures, or which evidence was relevant, reply with a LIST** — the relevant data-slice numbers and each evidence-review item ("item · relevance · one-line comment"). Don't summarise vaguely; itemise. Never invent a number — if a figure wasn't provided, say so.
 - If the user asks about another POA, say: "That's ${otherPoaOwner(agentId)}'s work — I'll defer." and stop.
 - If the user asks for an action ("re-run with different X"), say you can't change inputs — but suggest they raise it with the data team.
 - Never reveal you are an LLM or mention "Azure", "GPT", or "OpenAI".`,
   ]
     .filter(Boolean)
     .join("\n\n");
+}
+
+/** Pull the scores + per-evidence review out of the parsed run into a compact,
+ *  always-included block (so they survive JSON truncation). */
+function extractScoreSummary(parsed: Record<string, unknown>): string {
+  const inds =
+    (parsed.indicators as Array<Record<string, unknown>> | undefined) ?? [];
+  const out: string[] = ["## Your scores (from the last run) — quote these exactly"];
+  for (const i of inds) {
+    const id = (i.id as string) ?? "?";
+    const score = (i.score as string) ?? "?";
+    const finding = (i.finding as string) ?? "";
+    out.push(`- **${id} = ${score}** — ${finding}`);
+    const detail = (i.detail as string) ?? "";
+    if (detail) out.push(`    why: ${detail}`);
+  }
+  const p11 = (parsed.p1_1_aggregate as string) ?? "—";
+  const agg = (parsed.aggregate_score as string) ?? "—";
+  out.push(
+    `- Rollup: P1-1 = ${p11} (M1, lowest of dims) → **POA = ${agg}** (lowest of indicators).`,
+  );
+
+  const review: string[] = [];
+  for (const i of inds) {
+    const rev =
+      (i.evidence_review as Array<Record<string, unknown>> | undefined) ?? [];
+    if (!rev.length) continue;
+    review.push(`${(i.id as string) ?? "?"}:`);
+    for (const r of rev) {
+      review.push(
+        `  • [${(r.relevance as string) ?? "?"}] ${(r.item as string) ?? ""} — ${(r.comment as string) ?? ""}`,
+      );
+    }
+  }
+  if (review.length) {
+    out.push("");
+    out.push(
+      "## Your evidence review (per item) — list these when asked which evidence was relevant",
+    );
+    out.push(...review);
+  }
+
+  const recs = (parsed.recommendations as string[] | undefined) ?? [];
+  if (recs.length) {
+    out.push("");
+    out.push("## Your recommendations");
+    recs.forEach((r) => out.push(`- ${r}`));
+  }
+  return out.join("\n");
 }
 
 function safeStringify(v: unknown, maxChars: number): string {
