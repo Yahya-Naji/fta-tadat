@@ -1,0 +1,116 @@
+TADAT POA 1 — INTEGRITY OF THE REGISTERED TAXPAYER BASE
+Sample FTA answers (illustrative demo data — not official)
+
+HOW TO USE
+- Paste each answer into the matching question box in the checklist panel, OR
+  paste it into the chat when Layla asks that question.
+- Attach the matching file from demo/poa1/evidence/ (see README.md for the map).
+- Then click "Process evidence & score".
+- Expected result with these answers: P1-1-1 = A, P1-1-2 = B, P1-2 = B
+  -> P1-1 = B -> POA 1 = B ("broadly compliant").
+
+============================================================
+BACKGROUND (asked first — not scored)
+============================================================
+
+Q1. Under the tax laws, who must register / may register voluntarily / is not permitted?
+> Registration is mandatory for any business exceeding the VAT threshold (AED 375,000
+  taxable supplies), all taxable persons for Corporate Tax, importers/producers of excise
+  goods, and employers for their obligations. Voluntary VAT registration is allowed above
+  AED 187,500. Persons wholly below thresholds are not required to register; government
+  entities follow specific rules.
+
+Q2. What other government agencies are involved, and is registration info auto-shared?
+> Business licensing sits with the emirate economic departments (Dubai DET, Abu Dhabi
+  ADDED) and the free-zone authorities; identity is anchored on the Emirates ID (ICP).
+  The FTA issues the TRN. Licensing and Emirates ID data are shared with the FTA through
+  government data-exchange channels and validated at registration.
+
+Q3. Which unit owns registration and the database?
+> The Registration & Taxpayer Services function owns the process and the EmaraTax
+  registration database, supported by the IT/Data department for system integrity.
+
+============================================================
+P1-1-1 — ADEQUACY OF INFORMATION + IT SUBSYSTEM  (target: A)
+============================================================
+
+Q1. For individuals, does the database hold the required fields?
+> Yes — EmaraTax holds full name, address, contact details (phone/email of the taxpayer
+  and any appointed tax agent), date of birth, gender, and the filing & payment obligations
+  for each core tax the person is registered for, all keyed to the Emirates ID.
+
+Q2. For businesses, does it hold the required fields?
+> Yes — full legal name, business and postal address, phone/email/website, the TRNs of
+  related/associated parties and group members, beneficial owners and persons with
+  significant control, date of incorporation/licence, ISIC industry classification,
+  taxpayer segment (e.g., Large Taxpayer), and filing & payment obligations per core tax.
+
+Q3. Computerised or manual? Centralised or decentralised?
+> Fully computerised on EmaraTax — a single, centralised national platform. There is no
+  manual or decentralised register.
+
+Q4. Numbering system — single unique high-integrity number? Check digit?
+> Each taxpayer has one unique high-integrity TRN used across VAT, Corporate Tax and
+  Excise. The TRN includes a self-validating check digit and is the single key across all
+  core taxes.
+
+Q5. Does the IT subsystem provide the 6 features (incl. MFA)?
+> Yes — EmaraTax integrates with filing and payment processing, gives officers a
+  whole-of-taxpayer view across all core taxes, supports deactivation of dormant accounts
+  and deregistration with restorable archiving, generates registration management
+  information, maintains a full audit trail of user access and changes, and offers secure
+  online self-service registration/updates protected by multi-factor authentication.
+
+============================================================
+P1-1-2 — ACCURACY OF INFORMATION  (target: B)
+============================================================
+
+Q1. Documented procedures to remove inactive/duplicate/invalid — routine or ad hoc?
+> Yes — documented procedures run on a regular schedule to flag dormant accounts and
+  remove duplicate, inactive and invalid records.
+
+Q2. Authentic applications + proof of identity before registration? How?
+> Identity is verified against Emirates ID/ICP at registration for all applicants; for
+  higher-risk profiles, document checks are completed before the TRN is activated, while a
+  small share of low-risk cases are verified shortly AFTER registration.
+
+Q3. Cross-checks against third parties? Large-scale automated? Third-party accuracy?
+> Information is cross-checked against the licensing authorities and the Emirates ID
+  register, and selectively against other sources. This is partly automated but not yet
+  large-scale across every external database; third-party data is treated as reliable
+  given the official government sources.
+
+Q4. Reviewing repeat non-filers and updating the register?
+> Accounts with no filing across consecutive periods are reviewed and re-classified
+  (dormant/deregistered) where the taxpayer is found inactive.
+
+Q5. Certainty on active counts? Internal/external audit in last 1-2 years?
+> An internal audit of registry accuracy was completed in the last year and expressed a
+  high level of confidence, with a few minor data-quality items being addressed.
+
+============================================================
+P1-2 — KNOWLEDGE OF THE POTENTIAL TAXPAYER BASE  (target: B)
+============================================================
+
+Q1. Third-party info to detect unregistered businesses?
+> Yes — the FTA uses customs import data, emirate licensing records and economic-department
+  data to identify businesses trading above the threshold that have not registered,
+  including digital-service providers and online sellers.
+
+Q2. Geolocalisation / remote-sensing imagery?
+> Not currently used in a systematic way.
+
+Q3. Review when the base broadens (e.g., threshold change)?
+> Yes — when obligations expand (e.g., Corporate Tax roll-out), the register is reviewed to
+  ensure newly-liable taxpayers register for all applicable taxes.
+
+Q4. Risk-based unannounced visits + intelligence sources?
+> Field visits to commercial districts occur but are not yet a formalised, intelligence-led
+  programme.
+
+Q5. Analyse online trading platforms?
+> Some analysis of e-commerce platforms is done to spot unregistered sellers.
+
+Q6. Past 1-2 years — outcomes monitored and reported?
+> Yes — detection initiatives over the past year are documented, with the number of
+  taxpayers added to the register reported to management.

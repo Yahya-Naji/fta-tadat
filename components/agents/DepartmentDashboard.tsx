@@ -41,6 +41,7 @@ import {
   Clock,
   UserCheck,
   Check,
+  FileSearch,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -143,6 +144,10 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
   /** Layla's chat interview transcript — fed into scoring alongside the
    *  checklist bundle so answers given in chat also count. */
   const [chatTranscript, setChatTranscript] = React.useState<ChatTurn[]>([]);
+  /** One-shot result summary injected into the chat after a scoring run. */
+  const runSeqRef = React.useRef(0);
+  const [chatInjection, setChatInjection] =
+    React.useState<{ seq: number; text: string } | null>(null);
 
   // Pull pre-aggregate inputs + snapshot on mount
   React.useEffect(() => {
@@ -182,6 +187,14 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
       });
       const j = (await r.json()) as AgentRunResp;
       setRun(j);
+      // Inject a result summary into the chat channel (registry/evidence flow).
+      if (isRegistry && j.success && j.parsed) {
+        runSeqRef.current += 1;
+        setChatInjection({
+          seq: runSeqRef.current,
+          text: buildResultSummary(j.parsed),
+        });
+      }
     } catch (e) {
       setRun({ success: false, error: (e as Error).message });
     } finally {
@@ -319,6 +332,9 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
               onPick={setOpenIndicator}
             />
 
+            {/* Layla's per-evidence appraisal (evidence flow) */}
+            {isRegistry && <EvidenceReviewPanel parsed={parsed} />}
+
             {/* Human reviewer lane (evidence flow) */}
             {isRegistry && <ReviewerLane parsed={parsed} />}
 
@@ -357,6 +373,7 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
               inputs={inputs}
               interviewMode={isRegistry}
               onTranscriptChange={setChatTranscript}
+              injection={chatInjection}
             />
           </div>
         </div>
@@ -812,6 +829,139 @@ function ReviewerLane({ parsed }: { parsed: Record<string, unknown> | null }) {
       )}
     </section>
   );
+}
+
+// ─── Evidence review — Layla's per-item appraisal ──────────────────────────
+
+function EvidenceReviewPanel({
+  parsed,
+}: {
+  parsed: Record<string, unknown> | null;
+}) {
+  const inds =
+    (parsed?.indicators as Array<Record<string, unknown>> | undefined) ?? [];
+  const groups = inds
+    .map((i) => ({
+      id: (i.id as string) ?? "—",
+      reviews:
+        (i.evidence_review as Array<Record<string, unknown>> | undefined) ?? [],
+    }))
+    .filter((g) => g.reviews.length > 0);
+  if (groups.length === 0) return null;
+
+  return (
+    <section className="glass-panel p-5">
+      <p className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-[0.18em] text-indigo-500 dark:text-indigo-400 mb-1">
+        <FileSearch className="h-3.5 w-3.5" /> Layla&apos;s evidence review
+      </p>
+      <p className="text-[11px] text-gray-500 dark:text-gray-400 mb-3">
+        What each piece of evidence was worth — and whether it was relevant to the score.
+      </p>
+      <div className="space-y-3">
+        {groups.map((g) => (
+          <div key={g.id}>
+            <p className="font-mono text-[11px] font-bold text-indigo-600 dark:text-indigo-300 mb-1.5">
+              {g.id}
+            </p>
+            <ul className="space-y-1.5">
+              {g.reviews.map((r, i) => {
+                const rel = (r.relevance as string) ?? "relevant";
+                const item = (r.item as string) ?? "—";
+                const comment = (r.comment as string) ?? "";
+                return (
+                  <li
+                    key={i}
+                    className="flex items-start gap-2.5 rounded-lg border border-gray-200 dark:border-white/10 bg-white dark:bg-white/[0.02] px-3 py-2"
+                  >
+                    <RelevanceChip relevance={rel} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[12px] font-medium text-gray-800 dark:text-gray-200 leading-snug">
+                        {item}
+                      </p>
+                      {comment && (
+                        <p className="text-[11.5px] text-gray-600 dark:text-gray-400 leading-snug mt-0.5">
+                          {comment}
+                        </p>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RelevanceChip({ relevance }: { relevance: string }) {
+  const map: Record<string, { label: string; cls: string }> = {
+    relevant: {
+      label: "Relevant",
+      cls: "border-emerald-300/50 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300",
+    },
+    partial: {
+      label: "Partial",
+      cls: "border-sky-300/50 bg-sky-50 text-sky-700 dark:border-sky-500/30 dark:bg-sky-500/10 dark:text-sky-300",
+    },
+    insufficient: {
+      label: "Insufficient",
+      cls: "border-amber-300/50 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300",
+    },
+    not_relevant: {
+      label: "Not relevant",
+      cls: "border-gray-300 bg-gray-100 text-gray-600 dark:border-white/10 dark:bg-white/5 dark:text-gray-400",
+    },
+  };
+  const c = map[relevance] ?? map.relevant;
+  return (
+    <span
+      className={`shrink-0 mt-0.5 inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold ${c.cls}`}
+    >
+      {c.label}
+    </span>
+  );
+}
+
+// ─── Result summary posted into the chat after a scoring run ───────────────
+
+function buildResultSummary(parsed: Record<string, unknown>): string {
+  const inds =
+    (parsed.indicators as Array<Record<string, unknown>> | undefined) ?? [];
+  const lines: string[] = ["I've scored POA 1 from your evidence:"];
+  for (const i of inds) {
+    lines.push(
+      `• ${(i.id as string) ?? "?"}: ${(i.score as string) ?? "?"} — ${(i.finding as string) ?? ""}`,
+    );
+  }
+  const p11 = (parsed.p1_1_aggregate as string) ?? "—";
+  const agg = (parsed.aggregate_score as string) ?? "—";
+  lines.push(`Overall: P1-1 ${p11} → POA 1 ${agg} (M1, lowest-wins).`);
+
+  const highlights: string[] = [];
+  for (const i of inds) {
+    const rev =
+      (i.evidence_review as Array<Record<string, unknown>> | undefined) ?? [];
+    for (const r of rev) {
+      if (highlights.length >= 3) break;
+      highlights.push(
+        `• [${(r.relevance as string) ?? "?"}] ${(r.item as string) ?? ""}`,
+      );
+    }
+    if (highlights.length >= 3) break;
+  }
+  if (highlights.length) {
+    lines.push("", "Evidence review (sample):", ...highlights);
+  }
+
+  const rec = (parsed.recommendations as string[] | undefined)?.[0];
+  if (rec) lines.push("", `Top recommendation: ${rec}`);
+  lines.push(
+    "",
+    "Ask me why any band, which evidence was relevant, or to list the data.",
+  );
+  return lines.join("\n");
 }
 
 // ─── BigScore ─ prominent aggregate-score block for the banner ────────────
