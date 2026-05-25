@@ -77,10 +77,10 @@ Return ONLY a JSON object — no markdown fences, no prose outside JSON:
     {
       "id": "<one of the ids above>",
       "name": "<its name>",
-      "dim_kind": "qualitative",
+      "dim_kind": "qualitative" | "quantitative",
       "score": "A" | "B" | "C" | "D",
-      "value": null,
-      "value_label": null,
+      "value": <the reported figure as a plain number, or null>,
+      "value_label": <the figure with its unit for display, e.g. "7 min" or "92%", or null>,
       "finding": "<one bolded topic-style sentence>",
       "detail": "<2–4 sentences citing the evidence + the gap that capped the band>",
       "evidence": ["<cite the FTA answer / attached file you relied on>"],
@@ -96,8 +96,8 @@ Return ONLY a JSON object — no markdown fences, no prose outside JSON:
   "data_coverage": { "evidence_groups_provided": <number>, "period_assessed": "2025 FTA self-assessment" }
 }
 
-All POA ${poa} items are qualitative — set "value" to null for every row.
-"aggregate_score" = the LOWEST band across all rows (every indicator here uses M1, so the POA equals the weakest dimension).
+For a row whose band criteria are expressed as a NUMERIC threshold (e.g. a waiting time in minutes, or a percentage), set "dim_kind" to "quantitative", "value" to the figure the FTA reported (a plain number), and "value_label" to that figure with its unit (e.g. "7 min", "92%"). For every other row set "dim_kind" to "qualitative" and both "value" and "value_label" to null.
+"aggregate_score" = the LOWEST band across all rows — a conservative roll-up that takes the POA to its weakest dimension.
 
 ========================  TADAT SCORING RUBRIC (Field Guide 2025, Table 9)  ========================
 

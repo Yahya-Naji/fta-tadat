@@ -82,6 +82,17 @@ export const POA_BACKGROUND: Record<number, BackgroundGuidance> = {
       "Charters or terms of reference for the compliance, operational, or other relevant risk-management committees",
     ],
   },
+  3: {
+    questions: [
+      "Which organizational unit(s) of the tax administration are responsible for taxpayer services, education, and communications, and is there a documented taxpayer-services / communication strategy that guides them?",
+      "Through which channels does the administration deliver information and services to taxpayers (website, online portal, contact centre/telephone, in person, email, social media, mobile app)?",
+    ],
+    evidence_checklist: [
+      "Organizational chart with the taxpayer-services, education, and communications units",
+      "The taxpayer-services / education / communication strategy (or taxpayer charter)",
+      "List of service and information channels offered to taxpayers, and the languages supported",
+    ],
+  },
 };
 
 // ─── POA 1 — Integrity of the Registered Taxpayer Base ──────────────────
@@ -494,49 +505,81 @@ const P3_8: IndicatorDefinition = {
   poa: 3,
   poa_name: "Supporting and Facilitating Compliance",
   scoring_method: "M1",
-  scoring_rule: "M1 — lowest of dimensions.",
+  scoring_rule:
+    "M1 — the indicator equals the lowest of its dimension scores (P3-8-1, P3-8-2, P3-8-3).",
   measures:
-    "Whether taxpayer-facing info products are complete, current, and easy to access.",
+    "Whether taxpayer-facing information is comprehensive in scope, kept current, and easy to access across channels and segments.",
   bands: {
-    A: "All info products complete, refreshed at every legislative change, available in ≥2 languages on multiple channels.",
-    B: "Most info products current; minor gaps.",
-    C: "Info products partial or outdated; rely heavily on phone for clarification.",
-    D: "Info products outdated or missing.",
+    A: "All dimensions A — information covers all core taxes and obligations, tailored to key segments, kept promptly up to date, and delivered through a wide range of channels and languages.",
+    B: "Lowest dimension is B.",
+    C: "Lowest dimension is C.",
+    D: "Lowest dimension is D — requirements for C not met, or evidence insufficient.",
   },
   field_guide_ref: "Field Guide 2025, Ch V, pp 56–58 + 62–63",
   dimensions: [
     {
       dim_id: "P3-8-1",
       dim_name: "Scope of information",
-      measures: "Does info cover every core obligation (register, file, pay, refund, audit)?",
+      measures:
+        "Whether information covers all core taxes and the main taxpayer obligations and is tailored to the needs of key taxpayer segments.",
       bands: {
-        A: "100% coverage of obligations.",
-        B: "90%+ coverage; minor gaps.",
-        C: "75–90% coverage.",
-        D: "Less than 75%.",
+        A: "Information is available for all core taxes and covers all main obligations (how to register, file, pay, and what is taxable), is tailored to the needs of key taxpayer segments (including those with special needs), and a documented strategy guides what is produced and for whom.",
+        B: "Information covers all core taxes and main obligations with only minor gaps in segment tailoring.",
+        C: "Information covers the main obligations for the core taxes but is general (not tailored to segments) and/or has gaps for some obligations.",
+        D: "Requirements for a C or higher are not met, OR evidence to objectively assess the dimension is insufficient or unavailable.",
       },
+      questions: [
+        "Does the administration provide information covering all core taxes and the main taxpayer obligations (how to register, how to file, how to pay, and what is taxable)?",
+        "Is the information tailored to the needs of key taxpayer segments (e.g. small businesses, large taxpayers, individuals, and those with special needs such as the visually impaired)?",
+        "Is there a documented taxpayer-services / education / communication strategy that guides what information is produced and for whom?",
+      ],
+      evidence_checklist: [
+        "The taxpayer-information catalogue (guides, FAQs, leaflets, web pages) across the core taxes",
+        "Examples of segment-tailored products (small business, large taxpayer, individuals)",
+        "The taxpayer-services / education / communication strategy",
+      ],
     },
     {
       dim_id: "P3-8-2",
       dim_name: "Currency of information",
-      measures: "Are info products refreshed when legislation changes?",
+      measures:
+        "Whether information products are reviewed and updated promptly when laws, rates, or procedures change.",
       bands: {
-        A: "Refreshed within 30 days of every legislative change.",
-        B: "Refreshed within 90 days.",
-        C: "Refreshed within 6 months.",
-        D: "Stale info products in market.",
+        A: "Documented procedures ensure all information products are reviewed and updated promptly at every legislative or procedural change, and a periodic check confirms no out-of-date material remains in circulation.",
+        B: "Information products are updated for legislative/procedural changes, but updates are periodic rather than immediate and minor lags occur.",
+        C: "Information products are updated only occasionally; some out-of-date material remains in circulation.",
+        D: "Requirements for a C or higher are not met, OR evidence to objectively assess the dimension is insufficient or unavailable.",
       },
+      questions: [
+        "When tax laws, rates, or procedures change, how and how quickly are the related information products reviewed and updated?",
+        "Are there documented procedures (with a clear owner) for keeping information products current, and is there a check that no out-of-date material remains published?",
+      ],
+      evidence_checklist: [
+        "Documented procedure for reviewing/updating information products (with owner)",
+        "Version history / change log for key products showing updates after recent law changes",
+        "A sample of current published products with their last-updated dates",
+      ],
     },
     {
       dim_id: "P3-8-3",
-      dim_name: "Ease of access",
-      measures: "Are info products discoverable on the portal, via search, mobile?",
+      dim_name: "Accessibility and ease of access",
+      measures:
+        "Whether information is delivered through a range of channels and languages and is easy for taxpayers to find and understand.",
       bands: {
-        A: "Findable in ≤3 clicks; mobile-optimised; search works.",
-        B: "Findable in ≤5 clicks; mobile-optimised.",
-        C: "Findable but requires navigation knowledge.",
-        D: "Hard to find.",
+        A: "Information is delivered through a wide range of channels (website/portal, contact centre, in person, email, social media, mobile) in the main languages used by taxpayers, and is easy to find and understand.",
+        B: "Information is delivered through several channels in the main languages; most products are easy to find with only minor gaps.",
+        C: "Information is available but through limited channels and/or only one language, and taxpayers must often telephone for clarification.",
+        D: "Requirements for a C or higher are not met, OR evidence to objectively assess the dimension is insufficient or unavailable.",
       },
+      questions: [
+        "Through which channels is taxpayer information made available (website, online portal, contact centre, in person, email, social media, mobile app), and in which languages?",
+        "How easy is it for taxpayers to find and understand the information they need (e.g. search, plain language, mobile access)?",
+      ],
+      evidence_checklist: [
+        "List of service/information channels and the languages supported",
+        "The taxpayer website/portal (links or screenshots) showing key information products",
+        "Any usability or readability review of information products",
+      ],
     },
   ],
 };
@@ -548,38 +591,56 @@ const P3_9: IndicatorDefinition = {
   poa_name: "Supporting and Facilitating Compliance",
   scoring_method: "M2",
   scoring_rule:
-    "M2 — apply the 2-dimension conversion table from the Field Guide to derive the indicator score (may yield A, B+, B, C+, C, D+, D).",
+    "M2 — the Field Guide applies a 2-dimension conversion table. For the evidence flow each dimension is scored on its own and the indicator is shown as the weaker of the two.",
   measures:
-    "Telephone P50 wait time + written-response turnaround. Both contribute via M2.",
+    "How promptly the administration answers taxpayer enquiries — median telephone waiting time and written/electronic response turnaround.",
   bands: {
-    A: "Telephone P50 ≤ 6 min AND written response within 14 calendar days for ≥95% of requests.",
-    B: "Telephone P50 ≤ 8 min AND written response within 21 calendar days for ≥90%.",
-    C: "Telephone P50 ≤ 10 min OR written response within 30 calendar days for ≥80%.",
-    D: "Worse than C bands.",
+    A: "Both dimensions A — fast telephone answering (median ≤ 6 minutes) and ≥95% of written/electronic requests answered within the published standard.",
+    B: "Lowest dimension is B.",
+    C: "Lowest dimension is C.",
+    D: "Lowest dimension is D — below the C threshold, not measured, or evidence insufficient.",
   },
   field_guide_ref: "Field Guide 2025, Ch V, pp 58–59 + 63–64",
   dimensions: [
     {
       dim_id: "P3-9-1",
-      dim_name: "Telephone response time (P50)",
-      measures: "Median wait time on the taxpayer hotline.",
+      dim_name: "Telephone enquiry waiting time",
+      measures:
+        "The median (P50) time a taxpayer waits to reach an agent on the telephone enquiry service.",
       bands: {
-        A: "≤ 6 minutes.",
-        B: "6.1 to 8 minutes.",
-        C: "8.1 to 10 minutes.",
-        D: "More than 10 minutes.",
+        A: "Median telephone waiting time to reach an agent is 6 minutes or less.",
+        B: "Median telephone waiting time is more than 6 and up to 8 minutes.",
+        C: "Median telephone waiting time is more than 8 and up to 10 minutes.",
+        D: "Median waiting time exceeds 10 minutes, OR it is not measured / evidence is insufficient.",
       },
+      questions: [
+        "What is the median (P50) waiting time for a taxpayer to reach an agent on the telephone enquiry service, over the most recent 12 months?",
+        "How is telephone waiting time measured and reported, and what is the call-abandonment rate?",
+      ],
+      evidence_checklist: [
+        "Contact-centre performance report showing median waiting time and abandonment rate for the last 12 months",
+        "The methodology or system used to measure telephone waiting times",
+      ],
     },
     {
       dim_id: "P3-9-2",
-      dim_name: "Written-request response time",
-      measures: "Share of written info requests answered within the SLA.",
+      dim_name: "Written / electronic enquiry response time",
+      measures:
+        "The share of written or electronic information requests answered within the published service standard.",
       bands: {
-        A: "≥95% within 14 days.",
-        B: "≥90% within 21 days.",
-        C: "≥80% within 30 days.",
-        D: "Worse than C.",
+        A: "At least 95% of written/electronic information requests receive a substantive response within the published standard (e.g. 14 calendar days).",
+        B: "At least 90% receive a response within the standard (e.g. 21 calendar days).",
+        C: "At least 80% receive a response within the standard (e.g. 30 calendar days).",
+        D: "Below the C threshold, OR response time is not measured / evidence is insufficient.",
       },
+      questions: [
+        "What is the published service standard for responding to written/electronic information requests, and what percentage are answered within it over the most recent 12 months?",
+        "How is written-response turnaround measured and reported?",
+      ],
+      evidence_checklist: [
+        "Correspondence / e-service performance report showing the percentage responded to within the standard",
+        "The published service standard for written/electronic responses",
+      ],
     },
   ],
 };
@@ -590,16 +651,26 @@ const P3_10: IndicatorDefinition = {
   poa: 3,
   poa_name: "Supporting and Facilitating Compliance",
   scoring_method: "M1",
-  scoring_rule: "M1 — single dimension.",
+  scoring_rule: "M1 — single dimension; the indicator score is that score.",
   measures:
-    "Programmes that simplify obligations or reduce time/cost for taxpayers (pre-filling, simplified regimes, tax agents, intermediary engagement).",
+    "Programmes that simplify obligations or reduce the time and cost for taxpayers to comply (pre-filling, simplified regimes/record-keeping, streamlined online services, intermediary engagement).",
   bands: {
-    A: "Multiple active programmes; measured cost-reduction outcomes.",
-    B: "Active programmes; partial measurement of outcomes.",
-    C: "Some programmes; no measurement.",
-    D: "No active compliance-cost reduction programmes.",
+    A: "Multiple, actively maintained initiatives simplify obligations and reduce taxpayers' time/cost to comply (e.g. pre-filled returns, simplified regimes/record-keeping for small taxpayers, streamlined online processes, engagement with tax agents/intermediaries), AND the administration measures the resulting reduction in compliance burden.",
+    B: "Several such initiatives are in place and maintained, with partial measurement of their impact on compliance costs.",
+    C: "Some initiatives exist but are limited in scope and their impact on compliance costs is not measured.",
+    D: "Requirements for a C or higher are not met, OR evidence to objectively assess the indicator is insufficient or unavailable.",
   },
   field_guide_ref: "Field Guide 2025, Ch V, pp 59 + 64–65",
+  questions: [
+    "What initiatives does the administration use to simplify obligations and reduce the time and cost for taxpayers to comply (e.g. pre-filled returns, simplified regimes/record-keeping for small businesses, streamlined online filing/payment, withholding at source)?",
+    "How does it engage tax agents and intermediaries to reduce compliance costs?",
+    "Does it measure the reduction in taxpayers' compliance burden resulting from these initiatives?",
+  ],
+  evidence_checklist: [
+    "Description of the main compliance-cost-reduction initiatives (with current status)",
+    "Evidence of simplified regimes / pre-filling / streamlined online services",
+    "Any study or metrics on taxpayer compliance burden or cost",
+  ],
 };
 
 const P3_11: IndicatorDefinition = {
@@ -608,37 +679,58 @@ const P3_11: IndicatorDefinition = {
   poa: 3,
   poa_name: "Supporting and Facilitating Compliance",
   scoring_method: "M1",
-  scoring_rule: "M1 — lowest of dimensions.",
-  measures: "Whether the administration listens to taxpayers + acts on what it hears.",
+  scoring_rule:
+    "M1 — the indicator equals the lowest of its dimension scores (P3-11-1, P3-11-2).",
+  measures:
+    "Whether the administration routinely obtains taxpayer feedback on its products and services and demonstrably acts on what it hears.",
   bands: {
-    A: "Multiple feedback channels in routine use; documented action on findings.",
-    B: "Feedback channels exist; some action.",
-    C: "Limited feedback collection.",
-    D: "No feedback channels.",
+    A: "Both dimensions A — a range of feedback methods used routinely across key segments, and feedback systematically used to improve products and services.",
+    B: "Lowest dimension is B.",
+    C: "Lowest dimension is C.",
+    D: "Lowest dimension is D — requirements for C not met, or evidence insufficient.",
   },
   field_guide_ref: "Field Guide 2025, Ch V, pp 60 + 65–66",
   dimensions: [
     {
       dim_id: "P3-11-1",
       dim_name: "Use of feedback methods",
-      measures: "How many channels (surveys, panels, complaint-line analytics) feed leadership?",
+      measures:
+        "The range of methods used to routinely obtain taxpayer feedback on products and services, and their coverage of key segments.",
       bands: {
-        A: "≥3 channels routinely used.",
-        B: "2 channels routinely used.",
-        C: "1 channel.",
-        D: "No structured feedback.",
+        A: "A range of methods is used to routinely obtain taxpayer feedback on products and services (e.g. perception surveys, focus groups, advisory/consultative panels, complaint and contact-centre analytics), covering all key taxpayer segments.",
+        B: "More than one method is used routinely, covering most key segments.",
+        C: "A single or ad hoc method is used to obtain feedback.",
+        D: "Requirements for a C or higher are not met, OR evidence to objectively assess the dimension is insufficient or unavailable.",
       },
+      questions: [
+        "What methods does the administration use to obtain taxpayer feedback on its products and services (perception surveys, focus groups, advisory/consultative committees, complaint and contact-centre analytics)?",
+        "How regularly is feedback obtained, and does it cover the key taxpayer segments?",
+      ],
+      evidence_checklist: [
+        "The taxpayer feedback / consultation strategy or plan",
+        "Recent taxpayer satisfaction / perception survey reports",
+        "Records of advisory-panel / focus-group / consultation activities",
+      ],
     },
     {
       dim_id: "P3-11-2",
       dim_name: "Acting on feedback",
-      measures: "Are improvements demonstrably driven by taxpayer feedback?",
+      measures:
+        "Whether feedback is analysed and demonstrably used to improve products, services and processes.",
       bands: {
-        A: "Documented improvements per feedback cycle.",
-        B: "Some improvements traceable to feedback.",
-        C: "Feedback collected but rarely actioned.",
-        D: "Feedback not acted on.",
+        A: "Feedback is systematically analysed and demonstrably used to improve products, services and processes, with the changes documented and (where relevant) communicated back to taxpayers.",
+        B: "Feedback is analysed and some improvements are traceable to it.",
+        C: "Feedback is collected but only occasionally acted upon.",
+        D: "Requirements for a C or higher are not met, OR evidence to objectively assess the dimension is insufficient or unavailable.",
       },
+      questions: [
+        "How is taxpayer feedback analysed and used to improve products, services and processes?",
+        "Can the administration point to specific improvements made as a result of taxpayer feedback in the past 1–2 years?",
+      ],
+      evidence_checklist: [
+        "Examples of service or process improvements driven by taxpayer feedback",
+        "Reports showing analysis of feedback and the resulting action plans",
+      ],
     },
   ],
 };
@@ -649,16 +741,26 @@ const P3_12: IndicatorDefinition = {
   poa: 3,
   poa_name: "Supporting and Facilitating Compliance",
   scoring_method: "M1",
-  scoring_rule: "M1 — single dimension.",
+  scoring_rule: "M1 — single dimension; the indicator score is that score.",
   measures:
-    "Programmes that proactively help taxpayers report correctly the first time (cooperative compliance, large-taxpayer engagement, advance rulings, education campaigns).",
+    "Programmes that proactively help taxpayers report correctly the first time — cooperative compliance, large-taxpayer engagement, advance rulings/clarifications, and targeted education campaigns.",
   bands: {
-    A: "Active cooperative-compliance arrangements with large taxpayers; advance-ruling regime; targeted education programmes.",
-    B: "Some cooperative compliance + ruling regime.",
-    C: "Limited proactive engagement.",
-    D: "No proactive engagement programmes.",
+    A: "Active, well-documented programmes proactively help taxpayers report correctly the first time — e.g. cooperative-compliance arrangements with large taxpayers, a public/private (advance) ruling or clarification regime, AND targeted education campaigns for higher-risk segments.",
+    B: "Some such programmes are in place (e.g. a ruling regime and education campaigns) with partial coverage of key segments.",
+    C: "Proactive engagement is limited (e.g. ad hoc rulings or one-off campaigns).",
+    D: "Requirements for a C or higher are not met, OR evidence to objectively assess the indicator is insufficient or unavailable.",
   },
   field_guide_ref: "Field Guide 2025, Ch V, pp 61 + 66",
+  questions: [
+    "Does the administration operate cooperative-compliance or enhanced-relationship arrangements with large taxpayers to support accurate reporting?",
+    "Is there a public and/or private (advance) ruling or clarification regime that gives taxpayers certainty on how the law applies?",
+    "Does it run targeted education or outreach campaigns to help higher-risk segments report correctly?",
+  ],
+  evidence_checklist: [
+    "Description of cooperative-compliance / large-taxpayer engagement arrangements",
+    "The rulings / clarifications regime (guidance issued + volumes)",
+    "Examples of targeted taxpayer-education campaigns and their reach",
+  ],
 };
 
 // ─── POA 4 — Timely Filing ──────────────────────────────────────────────

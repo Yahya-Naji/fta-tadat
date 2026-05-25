@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { POA1_SAMPLE } from "@/lib/tadat/poa1-sample";
 import { POA2_SAMPLE } from "@/lib/tadat/poa2-sample";
+import { POA3_SAMPLE } from "@/lib/tadat/poa3-sample";
 
 import { PersonaAvatar } from "@/components/PersonaAvatar";
 import { PERSONAS, type AgentId } from "@/lib/personas";
@@ -105,7 +106,13 @@ export function EvidenceIntake({ agentId, poa, onBundleChange }: EvidenceIntakeP
 
   // Demo helper — fill the checklist from the bundled sample answers.
   const sampleForPoa =
-    poa === 1 ? POA1_SAMPLE : poa === 2 ? POA2_SAMPLE : null;
+    poa === 1
+      ? POA1_SAMPLE
+      : poa === 2
+        ? POA2_SAMPLE
+        : poa === 3
+          ? POA3_SAMPLE
+          : null;
   const sampleAvailable =
     !!sampleForPoa && groups.some((g) => sampleForPoa[g.group_id]);
   function applySample() {
