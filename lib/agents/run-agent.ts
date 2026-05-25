@@ -542,6 +542,21 @@ export async function runAgent(
       parseError = `schema warnings: ${safe.error.issues.length} issues`;
     }
     parsed = obj;
+
+    // Deterministic POA roll-up for the generic evidence flow. The aggregate is
+    // a pure function of the dimension scores (lowest-wins), so we compute it in
+    // code rather than trusting the model — it sometimes reports a higher band
+    // than its own weakest row.
+    if (evidenceMode && !isRegistryEvidence && parsed && Array.isArray(parsed.indicators)) {
+      const order = ["A", "B", "C", "D"];
+      let worst = -1;
+      for (const r of parsed.indicators as Array<{ score?: unknown }>) {
+        const s = typeof r?.score === "string" ? r.score.trim().toUpperCase() : "";
+        const idx = order.indexOf(s);
+        if (idx > worst) worst = idx;
+      }
+      if (worst >= 0) parsed.aggregate_score = order[worst];
+    }
   } catch (e) {
     parseError = (e as Error).message;
   }

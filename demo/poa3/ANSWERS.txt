@@ -1,0 +1,91 @@
+TADAT POA 3 — SUPPORTING & FACILITATING COMPLIANCE (Maya)
+Sample FTA answers (illustrative demo data — not official)
+
+HOW TO USE
+- On /agents/service, click "Load sample answers" to auto-fill, OR paste each
+  answer into the matching question (checklist or chat interview).
+- Attach the matching file from demo/poa3/evidence/ (see README.md).
+- Click "Process evidence & score".
+- Expected: mostly A/B, with accurate-reporting engagement (P3-12) ~C
+  → POA 3 ≈ C (lowest-wins, M1). P3-9 reports numbers (telephone ~7 min, written ~92%).
+
+============================================================
+BACKGROUND (not scored)
+============================================================
+Q1. Who owns taxpayer services / is there a strategy?
+> The Taxpayer Services & Communications department owns information, education and
+  contact-centre services, guided by a documented Taxpayer Services & Communication Strategy.
+Q2. Through which channels are information and services delivered?
+> Website, EmaraTax portal, contact centre (phone + email), in-person centres, social
+  media and a mobile app — in Arabic and English.
+
+============================================================
+P3-8-1 — Scope of information  (target A)
+============================================================
+> Guides, FAQs and web pages cover all core taxes (VAT, Excise, CT) and the main
+  obligations: how to register, file, pay, and what is taxable.
+> Tailored to key segments (small business, large taxpayers, individuals); accessibility
+  features for special needs.
+> A documented services/communication strategy guides what is produced and for whom.
+
+============================================================
+P3-8-2 — Currency of information  (target B)
+============================================================
+> When laws/rates/procedures change, the policy team flags affected products and Taxpayer
+  Services updates them — applied periodically (in batches), not instantly.
+> Documented update procedure with a named owner; periodic check for out-of-date material;
+  minor lags of a few weeks can occur after a change.
+
+============================================================
+P3-8-3 — Accessibility & ease of access  (target A)
+============================================================
+> Wide range of channels (website, portal, contact centre, in-person, email, social, app)
+  in Arabic and English.
+> Plain language, website search, mobile-optimised — taxpayers can usually self-serve
+  without telephoning.
+
+============================================================
+P3-9-1 — Telephone enquiry waiting time  (target B — ~7 min)
+============================================================
+> Median (P50) waiting time to reach an agent over the last 12 months ≈ 7 minutes.
+> Measured by the contact-centre platform and reported monthly; abandonment ≈ 9%.
+
+============================================================
+P3-9-2 — Written / electronic response time  (target B — ~92% in 21 days)
+============================================================
+> Published standard is 21 calendar days; ≈ 92% answered within it over the last 12 months.
+> Turnaround tracked in the correspondence/case system and reported monthly.
+
+============================================================
+P3-10 — Reduce compliance costs  (target B)
+============================================================
+> Pre-filled fields/validations in EmaraTax, simplified record-keeping guidance for small
+  business, fully online register/file/pay, and a tax-agent framework.
+> Tax agents/intermediaries engaged via briefings + a dedicated channel for bulk filings.
+> Impact measured only partially (online-filing uptake, processing time) — no full
+  compliance-cost study yet.
+
+============================================================
+P3-11-1 — Use of feedback methods  (target A)
+============================================================
+> Range of methods used routinely: annual satisfaction surveys, focus groups, a tax-agent
+  advisory panel, and complaint/contact-centre analytics.
+> Obtained at least annually; covers key segments (individuals, SMEs, large taxpayers, agents).
+
+============================================================
+P3-11-2 — Acting on feedback  (target B)
+============================================================
+> Feedback analysed and fed into service-improvement plans; some changes (simplified portal
+  screens, clearer VAT guidance) traceable to feedback.
+> Specific improvements made over 1–2 years, though not every theme is closed-looped back
+  to taxpayers.
+
+============================================================
+P3-12 — Initiatives to encourage accurate reporting  (target C)
+============================================================
+> Cooperative-compliance / enhanced-relationship arrangements with large taxpayers are being
+  piloted, not yet an established programme.
+> A private clarifications regime is in place and actively used; a public-ruling programme
+  is still developing.
+> Education has been one-off awareness campaigns (e.g. at Corporate Tax launch) rather than
+  a sustained, targeted programme for higher-risk segments.
