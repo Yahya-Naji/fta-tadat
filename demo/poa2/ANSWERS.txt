@@ -1,0 +1,90 @@
+TADAT POA 2 — EFFECTIVE RISK MANAGEMENT (Hamad)
+Sample FTA answers (illustrative demo data — not official)
+
+HOW TO USE
+- On /agents/risk, click "Load sample answers" to auto-fill, OR paste each
+  answer into the matching question (checklist or chat interview).
+- Attach the matching file from demo/poa2/evidence/ (see README.md).
+- Click "Process evidence & score".
+- Expected: mostly B, with HCR evaluation (P2-7-2) ~C → POA 2 ≈ C (lowest-wins, M1).
+
+============================================================
+BACKGROUND (not scored)
+============================================================
+Q1. Which unit sets risk policy / oversees it?
+> The Strategy & Risk function sets risk-management policy under the FTA Enterprise
+  Risk Management Policy; IT/Data owns operational/cyber risk and HR owns human-capital risk.
+Q2. Active senior risk committees?
+> Yes — a Compliance Risk Management Committee and an Operational Risk / Business
+  Continuity Committee meet regularly; an SLT reviews enterprise risk.
+
+============================================================
+P2-3-1 — Intelligence gathering & research  (target B)
+============================================================
+> Builds compliance-risk knowledge across VAT, CT and Excise by segment and obligation.
+> Environmental scans run in strategic planning; declarations + financial statements analysed.
+> Audit results analysed, incl. a small random-audit component.
+> Research into hidden economy + studies of transfer pricing/profit shifting, HWI, crypto.
+> Environmental/behavioural factors considered in segmentation.
+> Third-party data (banks, customs, licensing) used; analytics mostly basic, not advanced ML.
+
+============================================================
+P2-3-2 — Assess, rank, quantify  (target B)
+============================================================
+> Structured risk-assessment process consistent with IMF/OECD guidance.
+> Covers all core taxes, key segments and the largest sector; broader sector ranking expanding.
+> Linked to annual business planning (not a full multi-year strategic process).
+> Maintains a compliance risk register describing each risk and its threat.
+> Revenue-leakage estimates for some areas (VAT) only; not all core taxes; not published.
+
+============================================================
+P2-4 — Compliance improvement plan  (target B)
+============================================================
+> A CIP mitigates identified risks.
+> Covers all core taxes, the four obligations and high risks; large-taxpayer segment specific.
+> Lesser risks kept under monitoring.
+> Annual plan, aligned to business planning.
+> Resourced and largely implemented; most actions on track.
+
+============================================================
+P2-5 — Monitoring & evaluation  (target B)
+============================================================
+> Compliance Risk Management Committee oversees mitigation; reviews quarterly.
+> Progress + impact monitored against objectives, reported to senior management.
+> Compliance impact (revenue + behaviour) assessed over the past 1–2 years.
+> Policy makers alerted to legal weaknesses.
+> Findings documented and fed into the next plan.
+
+============================================================
+P2-6-1 — Operational risk identify/assess/mitigate  (target B)
+============================================================
+> Structured process for operational risks (IT failure, cyber, data loss) in planning.
+> Operational risk register maintained.
+> BIA with RTO/RPO conducted; refreshed about every two years.
+> BC strategy + documented recovery procedures with defined roles.
+> Operational-risk training provided; key suppliers' continuity reviewed.
+> Formal BC governance with senior ownership.
+
+============================================================
+P2-6-2 — Business continuity program  (target B)
+============================================================
+> BC program tested; results/recommendations documented and acted on by senior management.
+> BC/DR plan reviewed annually.
+> Progress monitored and reported to senior management.
+> Disaster-simulation exercises annually (not all staff each time).
+> Post-incident reviews conducted when incidents occur.
+
+============================================================
+P2-7-1 — HCR capacity & structures  (target B)
+============================================================
+> HR (with Strategy & Risk) owns HR management; comprehensive, current HR strategy.
+> Open performance-management process across the organisation.
+> HCR register + formal process across the five areas (capability, capacity, compliance, cost, connection).
+> Strategies address gender equality and balance.
+> HR team trained in HCRs; managers aware and supported.
+
+============================================================
+P2-7-2 — HCR evaluation  (target C)
+============================================================
+> HCR status + mitigation impact evaluated by HR roughly every two years (not annually, not independent).
+> Annual report covers HCR periodically rather than every year.

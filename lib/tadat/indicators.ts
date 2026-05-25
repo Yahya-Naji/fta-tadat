@@ -72,6 +72,16 @@ export const POA_BACKGROUND: Record<number, BackgroundGuidance> = {
       "Organizational chart of the tax administration with role descriptions of the main units",
     ],
   },
+  2: {
+    questions: [
+      "Which organizational unit(s) of the tax administration are responsible for setting risk-management policy and overseeing its implementation?",
+      "Are any active committees of senior managers in place to manage compliance and/or operational risks?",
+    ],
+    evidence_checklist: [
+      "Organizational chart of the tax administration with role descriptions of the main units",
+      "Charters or terms of reference for the compliance, operational, or other relevant risk-management committees",
+    ],
+  },
 };
 
 // ─── POA 1 — Integrity of the Registered Taxpayer Base ──────────────────
@@ -196,60 +206,106 @@ const P2_3: IndicatorDefinition = {
   poa_name: "Effective Risk Management",
   scoring_method: "M1",
   scoring_rule:
-    "M1 — the indicator equals the lowest of its dimension scores.",
+    "M1 — the indicator equals the lowest of its dimension scores (P2-3-1, P2-3-2).",
   measures:
-    "How systematically the administration identifies, ranks and quantifies risks to revenue + voluntary compliance.",
+    "Whether the administration gathers intelligence to identify compliance risks across the main tax obligations, and uses a structured process to assess, rank and quantify them.",
   bands: {
-    A: "Routine, modelled, intelligence-led risk identification across all major segments; risks ranked by AED at risk and probability; quarterly refresh.",
-    B: "Periodic structured risk identification; main risks quantified.",
-    C: "Some risk identification but not routine; predictive modelling is not used in case selection.",
-    D: "No structured risk identification process.",
+    A: "Both dimensions A — advanced-analytics intelligence from a wide range of internal + external sources, and a structured risk-assessment process embedded in multi-year strategic planning covering all core taxes, the four obligations, key segments and major sectors.",
+    B: "Lowest dimension is B.",
+    C: "Lowest dimension is C.",
+    D: "Lowest dimension is D — requirements for C not met, or evidence insufficient.",
   },
-  field_guide_ref: "Field Guide 2025, Ch IV, pp 41–44 + 48–49",
+  field_guide_ref: "Field Guide 2025, Ch IV — Table 8 (pp 41–43), Table 9 (pp 47–48)",
   dimensions: [
     {
       dim_id: "P2-3-1",
-      dim_name: "Process for risk identification",
+      dim_name: "Extent of intelligence gathering and research to identify compliance risks",
       measures:
-        "Is risk identification an institutionalised, routine process or a one-off exercise?",
+        "Whether the administration builds knowledge of compliance levels and current/emerging risks across core taxes, segments and the four obligations, using internal and external data.",
       bands: {
-        A: "Continuous, modelled, with explicit segments and triggers.",
-        B: "Annual or semi-annual structured exercise.",
-        C: "Ad-hoc, not routine, not modelled — predictive case selection not used.",
-        D: "No process.",
+        // Field Guide Table 9, p 47
+        A: "Builds knowledge of compliance levels and emerging risks by: (i) analysing environmental scans done as part of multi-year strategic planning; (ii) gathering + interpreting bulk external data using advanced analytics (predictive modeling, bunching analysis, machine learning) from banks/financial institutions, Customs and other government agencies, other tax jurisdictions and topical issues; and (iii) interpreting internal data (tax audits, declarations, fiscal registers/e-invoicing, tax-compliance-gap studies, taxpayer-behaviour studies).",
+        B: "As A but bulk external data uses basic analysis methods, and internal sources exclude tax-compliance-gap studies.",
+        C: "Intelligence-gathering and research is less comprehensive and mostly limited to internal, Customs and other government-agency sources.",
+        D: "Requirements for a C or higher are not met, OR evidence to objectively assess the dimension is insufficient or unavailable.",
       },
+      questions: [
+        "Does the administration undertake intelligence gathering and research to build knowledge of compliance levels and risks across core taxes, taxpayer segments and the four obligations (registration, filing, payment, accurate reporting)?",
+        "Does it analyse the results of environmental scans done as part of multi-year strategic planning, and analyse tax declarations and financial statements?",
+        "Does it analyse audit results, including results from random audits run to test compliance across a representative sample of the target population?",
+        "Does it research hidden economic activity, and study topical compliance issues (transfer pricing/profit shifting, aggressive tax planning by high-wealth/high-income taxpayers, use of crypto assets)?",
+        "Does it analyse environmental factors that influence taxpayer behaviour (business, industry, sociological, economic, psychological)?",
+        "Does it apply analytics (data analytics, predictive modeling, bunching analysis, machine learning) to bulk third-party data (banks/financial institutions, stock exchange, anti-money-laundering agency, property cadastre) and data from automatic exchange of information?",
+      ],
+      evidence_checklist: [
+        "Documented analysis of environmental scans from strategic planning",
+        "Random-audit program(s) to test compliance levels",
+        "Analysis of tax declarations and financial statements",
+        "Transfer-pricing / profit-shifting studies",
+        "Studies into the tax-planning practices of high-wealth/high-income taxpayers",
+        "Research into hidden economic activity",
+        "Studies into environmental factors affecting taxpayer behaviour",
+        "Analysis of third-party information + exchange-of-information / mutual-assistance agreements",
+      ],
     },
     {
       dim_id: "P2-3-2",
-      dim_name: "Range of intelligence sources",
+      dim_name: "Process used to assess, rank, and quantify taxpayer compliance risks",
       measures:
-        "How many external sources feed the risk picture (banks, customs, licensing, social security, beneficial ownership, etc.)?",
+        "Whether a structured risk-assessment process assesses and prioritises compliance risks across taxes, obligations, segments and sectors, and quantifies revenue at risk.",
       bands: {
-        A: "≥5 external sources cross-feeding; data-sharing agreements in place.",
-        B: "3–4 external sources used; some agreements.",
-        C: "1–2 external sources, used inconsistently.",
-        D: "No external intelligence used.",
+        // Field Guide Table 9, pp 47–48
+        A: "A structured risk-assessment process (of the kind in IMF/OECD literature) is applied as part of a multi-year strategic planning process to assess and prioritise compliance risks for all core taxes, the four main compliance obligations, key taxpayer segments and at least three major sectors/industries of economic importance.",
+        B: "As A but the process is not part of multi-year strategic planning (it is linked to annual business planning) and covers at least one major economic sector.",
+        C: "A less structured process assesses and prioritises compliance risks for all core taxes and the four main compliance obligations.",
+        D: "Requirements for a C or higher are not met, OR evidence to objectively assess the dimension is insufficient or unavailable.",
       },
+      questions: [
+        "Does the administration have a structured process (per contemporary management literature / IMF + OECD publications) to assess and prioritise compliance risks?",
+        "Does that process cover all core taxes, the key taxpayer segments, and specific industries/sectors ranked by economic importance and risk?",
+        "Is the process part of multi-year strategic planning, or linked to annual business planning?",
+        "Does the administration maintain a compliance risk register describing each risk and the threat it poses (impact on revenue, policy goals, community confidence, reputation)?",
+        "Does it estimate the amount of tax unpaid due to noncompliance (revenue leakage) — for unregistered businesses, avoidance, evasion and fraud — using a documented, consistently applied methodology, across all core taxes, and is it published?",
+      ],
+      evidence_checklist: [
+        "Documented risk-management methodology used to identify/assess/prioritise risks",
+        "Register of identified compliance risks per taxpayer segment / sub-segment",
+        "Documentation showing how risks were assessed + prioritised (e.g. a risk-rating matrix)",
+        "A prior-year risk assessment and how it was applied in a subsequent compliance plan",
+        "Documented methodology + estimates of tax revenue leakage; any published leakage reports",
+      ],
     },
   ],
 };
 
 const P2_4: IndicatorDefinition = {
   code: "P2-4",
-  name: "Mitigation of risks through a Compliance Improvement Plan",
+  name: "Mitigation of risks through a compliance improvement plan",
   poa: 2,
   poa_name: "Effective Risk Management",
   scoring_method: "M1",
-  scoring_rule: "M1 — single dimension.",
+  scoring_rule: "M1 — single dimension; the indicator score is that score.",
   measures:
-    "Whether identified risks feed into a written Compliance Improvement Plan with owners, KPIs, deadlines.",
+    "The degree to which the administration mitigates assessed risks to the tax system through a compliance improvement plan.",
   bands: {
-    A: "Documented CIP covering all major risks; owners and KPIs per action; refreshed annually.",
-    B: "CIP exists for the most material risks; partial coverage of segments.",
-    C: "Some mitigation activities but no consolidated CIP.",
-    D: "No mitigation plan.",
+    // Field Guide Table 9, p 48
+    A: "(i) A documented compliance improvement plan exists with mitigation activities for all high risks identified in the risk-rating process, covering all core taxes, the four main compliance obligations and key taxpayer segments; and (ii) the plan is fully implemented and resourced.",
+    B: "As A for all core taxes and the four obligations; at least the large-taxpayer segment is specifically covered; the plan is fully implemented and resourced.",
+    C: "A documented annual compliance plan exists with mitigation activities for identified risks but may not cover all core taxes, all four obligations or all key segments; some aspects may not be fully implemented/resourced.",
+    D: "Requirements for a C or higher are not met, OR evidence to objectively assess the dimension is insufficient or unavailable.",
   },
-  field_guide_ref: "Field Guide 2025, Ch IV, pp 44 + 49; Box 2 pg 37",
+  field_guide_ref: "Field Guide 2025, Ch IV — Table 8 (p 43), Table 9 (p 48); Box 2 p 36",
+  questions: [
+    "Does the administration have a compliance improvement plan to mitigate identified risks to the tax system?",
+    "Does the plan include mitigation actions for all core taxes, the key taxpayer segments, the four main compliance obligations, and all risks assessed as 'high'?",
+    "Does it also cover less serious risks where ongoing monitoring (rather than active intervention) is appropriate?",
+    "Does the plan cover multiple years or a single year only?",
+    "To what extent was the most recent completed year's plan resourced and implemented?",
+  ],
+  evidence_checklist: [
+    "The documented multi-year and/or annual compliance improvement plan",
+    "Evidence the most recent plan was resourced and implemented",
+  ],
 };
 
 const P2_5: IndicatorDefinition = {
@@ -258,98 +314,174 @@ const P2_5: IndicatorDefinition = {
   poa: 2,
   poa_name: "Effective Risk Management",
   scoring_method: "M1",
-  scoring_rule: "M1 — single dimension.",
+  scoring_rule: "M1 — single dimension; the indicator score is that score.",
   measures:
-    "Whether the impact of risk-mitigation activities is measured ex-post and reported up.",
+    "The process used to monitor and evaluate the impact of compliance risk mitigation activities.",
   bands: {
-    A: "Quarterly KPI review by senior leadership; lessons feed back into the next CIP.",
-    B: "Periodic ex-post review of impact.",
-    C: "Some monitoring but no formal evaluation loop.",
-    D: "No monitoring of risk-mitigation outcomes.",
+    // Field Guide Table 9, pp 48–49
+    A: "(i) Formal governance at senior level (e.g. an active risk-management committee) approves mitigation strategies and monitors progress at least monthly; and (ii) evaluations of the effectiveness of all approved strategies in achieving targeted outcomes are documented and reviewed by senior management at least every six months.",
+    B: "As A but monitoring is quarterly, and evaluations cover at least 50 percent of approved strategies, reviewed at least six-monthly.",
+    C: "Strategies are approved at senior level and results monitored less frequently; evaluations of effectiveness are sometimes documented and reviewed.",
+    D: "Requirements for a C or higher are not met, OR evidence to objectively assess the dimension is insufficient or unavailable.",
   },
-  field_guide_ref: "Field Guide 2025, Ch IV, pp 45 + 49–50",
+  field_guide_ref: "Field Guide 2025, Ch IV — Table 8 (p 44), Table 9 (pp 48–49)",
+  questions: [
+    "What governance arrangements exist (e.g. a risk-management committee), how often does it meet, and what are the arrangements for assessing risks and preparing compliance improvement plans?",
+    "Does the administration monitor progress and evaluate the impact of risk-mitigation initiatives against set objectives, with regular reports to senior management?",
+    "Has it quantified the compliance impact (revenue collections + taxpayer behaviour) of the main mitigation activities over the past 1–2 years?",
+    "Is there evidence of alerting policy makers to weaknesses in the law that expose the tax system to high risk (e.g. aggressive tax planning)?",
+    "Is it usual practice to document findings from mitigation activities and feed them into future compliance improvement plans?",
+  ],
+  evidence_checklist: [
+    "Terms of reference + membership of the compliance risk-management committee",
+    "Minutes of committee meetings (review of prior plans, approval of current, effectiveness, decisions)",
+    "Two consecutive status reports on planned risk-mitigation activities",
+    "An evaluation report of a prior-year plan + impact evaluation (revenue + behaviour)",
+    "Documented process for feeding findings into future plans; reports to policy makers + resulting law changes",
+  ],
 };
 
 const P2_6: IndicatorDefinition = {
   code: "P2-6",
-  name: "Identification, assessment, and mitigation of institutional risks",
+  name: "Management of operational risks",
   poa: 2,
   poa_name: "Effective Risk Management",
   scoring_method: "M1",
-  scoring_rule: "M1 — the indicator equals the lowest of its dimension scores.",
+  scoring_rule:
+    "M1 — the indicator equals the lowest of its dimension scores (P2-6-1, P2-6-2).",
   measures:
-    "How the administration manages operational risks (IT outages, fraud, BCP, data loss).",
+    "How the administration identifies/assesses/mitigates operational risks and approves, monitors, tests and evaluates its business continuity program.",
   bands: {
-    A: "Documented operational-risk register + BCP; quarterly tabletop exercises.",
-    B: "Operational-risk register exists with periodic review.",
-    C: "Some operational risks tracked but not systematically.",
-    D: "No operational-risk management.",
+    A: "Both dimensions A — an annual organisation-wide operational-risk process with BIA (RTO/RPO), comprehensive business-continuity plans, and tested, governed, regularly evaluated continuity arrangements.",
+    B: "Lowest dimension is B.",
+    C: "Lowest dimension is C.",
+    D: "Lowest dimension is D — requirements for C not met, or evidence insufficient.",
   },
-  field_guide_ref: "Field Guide 2025, Ch IV, pp 45–46 + 50–51",
+  field_guide_ref: "Field Guide 2025, Ch IV — Table 8 (pp 44–45), Table 9 (pp 49–50); Box 3 p 37",
   dimensions: [
     {
       dim_id: "P2-6-1",
-      dim_name: "Identification and assessment of operational risks",
-      measures: "Are operational risks logged, scored, and prioritised?",
+      dim_name: "Process used to identify, assess, and mitigate operational risks",
+      measures:
+        "Whether operational risks (IT failure, cyber breach, data loss) are identified, assessed and prioritised in a register, with a business impact analysis and business-continuity plans, and staff trained.",
       bands: {
-        A: "Comprehensive operational-risk register with quantified impact.",
-        B: "Operational-risk register exists; partial impact assessment.",
-        C: "Ad-hoc tracking of operational risks.",
-        D: "No operational-risk identification.",
+        // Field Guide Table 9, p 49
+        A: "(i) A structured process is applied annually across the whole organisation to identify, assess and prioritise operational risks in a risk register; (ii) a business impact analysis incorporating detailed RTO and RPO is prepared annually; (iii) comprehensive business-continuity plans are developed for at least three identified risk areas (e.g. IT, natural disasters, human-made events); (iv) all staff are formally trained and tested at least annually on their operational-risk roles.",
+        B: "As A but the BIA is prepared every two years, BC plans cover two risk areas, and staff are trained + tested every two years.",
+        C: "A less structured annual process; a less detailed BIA (not fully incorporating RTO/RPO) every two years; a BC plan for one risk area; staff trained (no testing) every two years.",
+        D: "Requirements for a C or higher are not met, OR evidence to objectively assess the dimension is insufficient or unavailable.",
       },
+      questions: [
+        "Does the administration have a structured process to identify, assess, prioritise, prevent and mitigate operational risks (e.g. IT-system failure, cyber-security breach, loss of taxpayer data), forming part of its planning?",
+        "Does it maintain an operational risk register?",
+        "Does it conduct a Business Impact Analysis (including where third parties deliver services) to understand impact, the recovery time objective (RTO) and recovery point objective (RPO)?",
+        "Has it prepared a business-continuity strategy and documented plans/procedures for restoring operations after an incident, with clearly defined roles?",
+        "Is there mandatory organisation-wide operational-risk training of staff, and have suppliers' business-continuity capabilities been evaluated?",
+        "Do formal business-continuity governance arrangements exist, with senior-management support and ownership?",
+      ],
+      evidence_checklist: [
+        "Documented operational-risk methodology incl. a vulnerability/cyber risk assessment",
+        "Operational risk register",
+        "Business Impact Analysis reports (with RTO/RPO)",
+        "Documentation showing risks assessed + prioritised, with mitigation plans + reports to senior management",
+        "Business-continuity plans (including any from third parties)",
+        "Staff training plans covering operational risks",
+      ],
     },
     {
       dim_id: "P2-6-2",
-      dim_name: "Mitigation of operational risks",
-      measures: "Are mitigations in place + tested (BCP, redundancy, vendor risk)?",
+      dim_name: "Process to approve, monitor, test and evaluate the business continuity program",
+      measures:
+        "Whether the business-continuity program is endorsed at senior level, monitored, exercised/tested, and evaluated (including post-incident review).",
       bands: {
-        A: "BCP tested quarterly; redundant IT; vendor SLAs monitored.",
-        B: "BCP exists + occasionally tested.",
-        C: "Some mitigations exist; not regularly tested.",
-        D: "No operational-risk mitigation.",
+        // Field Guide Table 9, p 50
+        A: "(i) The Operational Risk Management Committee (or senior leadership team) endorses the business-continuity strategy and monitors implementation six-monthly, taking corrective action; (ii) business-continuity exercises are conducted at least every six months for all staff, with results documented and any systemic weaknesses addressed.",
+        B: "As A but on an annual basis.",
+        C: "The committee/SLT formally endorses the BC strategy but monitoring is ad hoc; BC exercises are conducted at least annually but not all staff are involved, with results still documented.",
+        D: "Requirements for a C or higher are not met, OR evidence to objectively assess the dimension is insufficient or unavailable.",
       },
+      questions: [
+        "Is the business-continuity management program tested, with results and recommendations documented, reviewed and acted on by senior management?",
+        "How often is the BC / disaster-recovery plan reviewed and updated?",
+        "Does the administration monitor progress and evaluate the impact of operational-risk mitigation initiatives, with regular reports to senior management?",
+        "How does it test its capability to respond to disruptions — e.g. disaster-simulation exercises — and are all staff involved?",
+        "If an incident has occurred, did the administration undertake a timely post-incident evaluation of the business-continuity / disaster-recovery plan covering all relevant aspects?",
+      ],
+      evidence_checklist: [
+        "Terms of reference of the Operational Risk Management Committee",
+        "Two consecutive reports evaluating the business-continuity plans",
+        "Documented senior-management responses on implementing the BC program",
+        "Post-incident review reports (with recommendations + senior endorsement)",
+      ],
     },
   ],
 };
 
 const P2_7: IndicatorDefinition = {
   code: "P2-7",
-  name: "Identification, assessment, and mitigation of human capital risks",
+  name: "Management of human capital risks",
   poa: 2,
   poa_name: "Effective Risk Management",
   scoring_method: "M1",
-  scoring_rule: "M1 — the indicator equals the lowest of its dimension scores.",
+  scoring_rule:
+    "M1 — the indicator equals the lowest of its dimension scores (P2-7-1, P2-7-2).",
   measures:
-    "How the administration manages workforce risks (staff turnover, skills gaps, succession).",
+    "Whether the administration has the capacity and structures to manage human capital risks, and evaluates their status and mitigation.",
   bands: {
-    A: "Documented HCR register + skills-gap analysis; succession plans for key roles.",
-    B: "HCR register exists; some succession planning.",
-    C: "Some HCR awareness; no formal plan.",
-    D: "No HCR management.",
+    A: "Both dimensions A — a comprehensive HR strategy with a documented HCR register and governance, plus an independent annual HCR evaluation that is acted upon and reported.",
+    B: "Lowest dimension is B.",
+    C: "Lowest dimension is C.",
+    D: "Lowest dimension is D — requirements for C not met, or evidence insufficient.",
   },
-  field_guide_ref: "Field Guide 2025, Ch IV, pp 47 + 51–52",
+  field_guide_ref: "Field Guide 2025, Ch IV — Table 8 (p 46), Table 9 (pp 50–51); Box 4 p 39",
   dimensions: [
     {
       dim_id: "P2-7-1",
-      dim_name: "Identification and assessment of HCR",
-      measures: "Are HCRs systematically tracked (turnover, skills gaps, key-person dependency)?",
+      dim_name: "Capacity and structures to manage human capital risks",
+      measures:
+        "Whether an HR strategy, formal HCR processes (capability, capacity, compliance, cost, connection), governance and performance management are in place.",
       bands: {
-        A: "Quarterly HCR review with metrics.",
-        B: "Annual HCR assessment.",
-        C: "Ad-hoc HCR awareness.",
-        D: "No HCR tracking.",
+        // Field Guide Table 9, p 50
+        A: "(i) The organisation has a comprehensive, up-to-date HR strategy; (ii) formal processes identify/assess/prioritise/mitigate HCRs, documented in a risk register; (iii) all managers/supervisors are trained to understand HCRs and their impact; (iv) an active senior governance structure reviews HCRs at least annually; (v) all staff have annual performance agreements with reviews at least twice a year.",
+        B: "As A(i–iii); the governance review is every two years; performance reviews are conducted annually.",
+        C: "Has the HR strategy; HCR processes exist but are less structured and not regular; managers are made aware ad hoc; governance and performance reviews are ad hoc.",
+        D: "Requirements for a C or higher are not met, OR evidence to objectively assess the dimension is insufficient or unavailable.",
       },
+      questions: [
+        "Which unit is responsible for HR management (policy, implementation, evaluation), and does the organisation have a comprehensive HR strategy?",
+        "Is there an open, transparent performance-management process across the whole organisation?",
+        "Does the administration maintain a human-capital-risk register and a formal process for short- and long-term HCRs across the five areas (capability, capacity, compliance, cost, connection)?",
+        "Do the strategies specifically address gender equality and balance?",
+        "Does the HR team have experience/training in identifying and addressing HCRs, and are managers aware of HCRs and supported in mitigating them?",
+      ],
+      evidence_checklist: [
+        "Organisational + HR-function structure and the HR strategy",
+        "Documented HCR methodology and risk register",
+        "Documentation showing HCRs assessed/prioritised + mitigation plans/reports",
+        "Performance-management policy + signed performance reviews",
+        "Records of HCR training and employee-engagement surveys",
+      ],
     },
     {
       dim_id: "P2-7-2",
-      dim_name: "Mitigation of HCR",
-      measures: "Are mitigations in place (training, succession, retention programmes)?",
+      dim_name: "Evaluation of human capital risk status and mitigation interventions",
+      measures:
+        "Whether the administration formally evaluates HCR status and the effectiveness of mitigation interventions, and reports it.",
       bands: {
-        A: "Documented training + succession plans for all key roles.",
-        B: "Training + partial succession plans.",
-        C: "Some training; succession ad-hoc.",
-        D: "No HCR mitigation.",
+        // Field Guide Table 9, p 51
+        A: "(i) A person independent of the HR function conducts a formal evaluation (including a staff survey) of HCR status at least annually; (ii) an annual impact analysis evaluates the effectiveness of mitigating interventions and findings are acted on; (iii) the annual report contains an HCR section including the evaluation results.",
+        B: "As A but the HR area itself conducts the annual evaluation; (ii) and (iii) as in A.",
+        C: "The HR area conducts a formal evaluation at least every two years; an impact analysis is acted on; the annual-report HCR section appears every two years.",
+        D: "Requirements for a C or higher are not met, OR evidence to objectively assess the dimension is insufficient or unavailable.",
       },
+      questions: [
+        "Does the administration evaluate the results of HCR assessments and the impact of HCR mitigation measures — who conducts it and how often?",
+        "Does the annual operations report contain details of the HCR evaluation, and is it published?",
+      ],
+      evidence_checklist: [
+        "Two recent HCR reports presented to an Institutional Risk Management Committee / Senior Leadership Team",
+        "The tax administration's annual report (with the HCR section)",
+      ],
     },
   ],
 };
