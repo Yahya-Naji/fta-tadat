@@ -127,10 +127,10 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
   const [snapshot, setSnapshot] = React.useState<SnapshotResp | null>(null);
   const [openIndicator, setOpenIndicator] =
     React.useState<IndicatorPanelData | null>(null);
-  // Layla (registry) runs the evidence-intake flow — no pre-dropped file.
-  const isRegistry = stage.id === "registry";
+  // Evidence-intake flow for any POA with an authored playbook (Layla, Hamad…).
+  const evidenceFlow = hasPlaybook(stage.poa);
   const [picked, setPicked] = React.useState<PickedFile | null>(() =>
-    stage.id === "registry" ? null : defaultSampleFor(stage.id),
+    hasPlaybook(stage.poa) ? null : defaultSampleFor(stage.id),
   );
   /** Parsed contents of an uploaded (non-sample) file. Lets the dataset
    *  preview show real rows + apply heuristic red-flagging. */
@@ -166,7 +166,7 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
     setRun(null);
 
     // Brief ingest beat so the read feels real before the agent fires.
-    if (picked || isRegistry) {
+    if (picked || evidenceFlow) {
       setIngesting(true);
       await new Promise((r) => setTimeout(r, 650));
       setIngesting(false);
@@ -180,7 +180,7 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
         // transcript when present; other agents post an empty body.
         body: JSON.stringify({
           ...(evidenceBundle ? { evidenceBundle } : {}),
-          ...(isRegistry && chatTranscript.length
+          ...(evidenceFlow && chatTranscript.length
             ? { chatTranscript }
             : {}),
         }),
@@ -188,7 +188,7 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
       const j = (await r.json()) as AgentRunResp;
       setRun(j);
       // Inject a result summary into the chat channel (registry/evidence flow).
-      if (isRegistry && j.success && j.parsed) {
+      if (evidenceFlow && j.success && j.parsed) {
         runSeqRef.current += 1;
         setChatInjection({
           seq: runSeqRef.current,
@@ -273,11 +273,11 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
           run={run}
           picked={picked}
           onRun={runLive}
-          evidenceMode={isRegistry}
+          evidenceMode={evidenceFlow}
         />
 
         {/* Engagement + pending-tasks strip (evidence flow) */}
-        {isRegistry && (
+        {evidenceFlow && (
           <AssessmentStatusStrip bundle={evidenceBundle} parsed={parsed} run={run} />
         )}
 
@@ -291,7 +291,7 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
         )}
 
         {/* Old prepared-dataset flow — kept for the non-evidence agents only */}
-        {!isRegistry && (
+        {!evidenceFlow && (
           <>
             <DepartmentSource
               stage={stage}
@@ -333,10 +333,10 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
             />
 
             {/* Layla's per-evidence appraisal (evidence flow) */}
-            {isRegistry && <EvidenceReviewPanel parsed={parsed} />}
+            {evidenceFlow && <EvidenceReviewPanel parsed={parsed} />}
 
             {/* Human reviewer lane (evidence flow) */}
-            {isRegistry && <ReviewerLane parsed={parsed} />}
+            {evidenceFlow && <ReviewerLane parsed={parsed} />}
 
             {/* Flagged records */}
             <FlaggedBlock id={stage.id} parsed={parsed} />
@@ -371,7 +371,7 @@ export function DepartmentDashboard({ stage }: DepartmentDashboardProps) {
               agentId={stage.id}
               parsed={parsed}
               inputs={inputs}
-              interviewMode={isRegistry}
+              interviewMode={evidenceFlow}
               onTranscriptChange={setChatTranscript}
               injection={chatInjection}
             />
@@ -667,11 +667,12 @@ function AssessmentScorecard({
     (parsed?.indicators as Array<Record<string, unknown>> | undefined) ?? [];
   const p11 = parsed?.p1_1_aggregate as string | undefined;
   const poa = parsed?.aggregate_score as string | undefined;
+  const poaNum = (parsed?.poa as number | undefined) ?? undefined;
 
   return (
     <section className="glass-panel p-5">
       <p className="text-[10px] font-mono uppercase tracking-[0.22em] text-indigo-500 dark:text-indigo-400 mb-1">
-        Evidence-based assessment · POA 1
+        Evidence-based assessment{poaNum ? ` · POA ${poaNum}` : ""}
       </p>
       <h3 className="text-base font-bold text-gray-900 dark:text-white">
         Dimension scorecard — graded from the evidence provided
@@ -681,7 +682,7 @@ function AssessmentScorecard({
         <p className="mt-4 text-[12.5px] text-gray-500 dark:text-gray-400 italic leading-relaxed">
           Provide evidence above, then click{" "}
           <span className="font-semibold">Process evidence &amp; score</span>. Each
-          dimension is graded against the TADAT Table 6 criteria — anything with no
+          dimension is graded against the TADAT criteria — anything with no
           evidence scores D.
         </p>
       ) : (
@@ -726,9 +727,16 @@ function AssessmentScorecard({
 
           {/* M1 rollup */}
           <div className="mt-4 flex flex-wrap items-center gap-3 rounded-xl border border-indigo-200 dark:border-indigo-500/30 bg-indigo-50/50 dark:bg-indigo-500/[0.06] px-4 py-3">
-            <Rollup label="P1-1 · lowest of dims" score={p11} />
-            <span className="text-gray-300 dark:text-white/20">→</span>
-            <Rollup label="POA 1 · lowest of P1-1, P1-2" score={poa} />
+            {p11 && (
+              <>
+                <Rollup label="P1-1 · lowest of dims" score={p11} />
+                <span className="text-gray-300 dark:text-white/20">→</span>
+              </>
+            )}
+            <Rollup
+              label={`POA${poaNum ? " " + poaNum : ""} · lowest of all dimensions`}
+              score={poa}
+            />
             <span className="ml-auto text-[10px] font-mono text-gray-500 dark:text-gray-400">
               M1 aggregation · Field Guide p.13
             </span>
@@ -929,15 +937,20 @@ function RelevanceChip({ relevance }: { relevance: string }) {
 function buildResultSummary(parsed: Record<string, unknown>): string {
   const inds =
     (parsed.indicators as Array<Record<string, unknown>> | undefined) ?? [];
-  const lines: string[] = ["I've scored POA 1 from your evidence:"];
+  const poaNum = (parsed.poa as number | undefined) ?? "";
+  const lines: string[] = [`I've scored POA ${poaNum} from your evidence:`];
   for (const i of inds) {
     lines.push(
       `• ${(i.id as string) ?? "?"}: ${(i.score as string) ?? "?"} — ${(i.finding as string) ?? ""}`,
     );
   }
-  const p11 = (parsed.p1_1_aggregate as string) ?? "—";
+  const p11 = parsed.p1_1_aggregate as string | undefined;
   const agg = (parsed.aggregate_score as string) ?? "—";
-  lines.push(`Overall: P1-1 ${p11} → POA 1 ${agg} (M1, lowest-wins).`);
+  lines.push(
+    p11
+      ? `Overall: P1-1 ${p11} → POA ${poaNum} ${agg} (M1, lowest-wins).`
+      : `Overall: POA ${poaNum} ${agg} (M1, lowest of all dimensions).`,
+  );
 
   const highlights: string[] = [];
   for (const i of inds) {
@@ -1009,9 +1022,9 @@ function SignatureChart({
   parsed: Record<string, unknown> | null;
   snapshot: SnapshotResp | null;
 }) {
-  if (stage.id === "registry") {
-    // Evidence-based result card replaces the old DB-driven registry chart
-    // (RegistryChart kept below as a non-evidence fallback / reference).
+  if (hasPlaybook(stage.poa)) {
+    // Evidence-based result card replaces the per-POA chart for playbook POAs
+    // (the old DB-driven charts remain below for non-evidence POAs).
     return <AssessmentScorecard parsed={parsed} />;
   }
   if (stage.id === "risk") {

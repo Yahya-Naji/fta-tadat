@@ -40,6 +40,8 @@ import {
   SYSTEM_PROMPT_RISK,
   SYSTEM_PROMPT_SERVICE,
 } from "@/lib/agents/system-prompts";
+import { buildEvidencePrompt } from "@/lib/agents/evidence-prompt";
+import { hasPlaybook } from "@/lib/tadat/evidence-requests";
 
 // ─── Configure SDK once for Azure OpenAI ──────────────────────────────────
 let _configured = false;
@@ -115,6 +117,18 @@ const RegistryOutput = z.object({
   recommendations: z.array(z.string()),
   // Loosened — the evidence flow reports group coverage, not record counts.
   data_coverage: z.record(z.string(), z.unknown()).nullable(),
+});
+
+// Generic evidence-flow output (POA 2+). Same flat indicator shape as registry
+// but POA-agnostic — fed by the generated evidence prompt.
+const EvidenceOutput = z.object({
+  poa: z.number(),
+  poa_name: z.string(),
+  indicators: z.array(RegistryIndicator),
+  aggregate_method: z.string().nullish(),
+  aggregate_score: z.string(),
+  recommendations: z.array(z.string()).nullish(),
+  data_coverage: z.record(z.string(), z.unknown()).nullish(),
 });
 
 const FilingOutput = z.object({
@@ -429,17 +443,20 @@ export async function runAgent(
 
   const t0 = Date.now();
 
+  const poa = spec.poa;
+  const evidenceCapable = hasPlaybook(poa);
   const hasTranscript =
     Array.isArray(options.chatTranscript) && options.chatTranscript.length > 0;
   const evidenceMode =
-    workflow === "registry" &&
-    (options.evidenceBundle != null || hasTranscript);
+    evidenceCapable && (options.evidenceBundle != null || hasTranscript);
+  // Registry (POA 1) keeps its bespoke prompt + DB corroboration slice; other
+  // playbook POAs use the generic, canon-generated evidence prompt.
+  const isRegistryEvidence = evidenceMode && workflow === "registry";
 
-  // 1. Pre-aggregate (Supabase). In evidence mode the slice only corroborates
-  // P1-1-2, so a DB outage must NOT block an evidence-based assessment — we
-  // proceed with a clearly-marked unavailable slice instead.
-  let baseInputs: unknown;
-  if (evidenceMode) {
+  // 1. Pre-aggregate. In evidence mode only registry needs the DB slice (to
+  // corroborate P1-1-2), and a DB outage must NOT block the assessment.
+  let baseInputs: unknown = null;
+  if (isRegistryEvidence) {
     try {
       baseInputs = await spec.aggregator();
     } catch (e) {
@@ -448,20 +465,17 @@ export async function runAgent(
         reason: `registry_data_slice unavailable (DB not reachable): ${(e as Error).message}`,
       };
     }
-  } else {
+  } else if (!evidenceMode) {
     baseInputs = await spec.aggregator();
   }
 
-  // 1b. Compose inputs. Three paths:
-  //   • registry + evidence bundle → evidence-based (bundle primary, DB slice corroborates)
-  //   • uploaded file               → file context alongside the aggregates
-  //   • otherwise                    → the aggregates alone
+  // 1b. Compose inputs.
   let inputs: unknown;
   if (evidenceMode) {
     inputs = {
       evidence_bundle: options.evidenceBundle ?? null,
       interview_transcript: hasTranscript ? options.chatTranscript : null,
-      registry_data_slice: baseInputs,
+      ...(isRegistryEvidence ? { registry_data_slice: baseInputs } : {}),
     };
   } else if (options.uploadedFile != null) {
     inputs = {
@@ -474,7 +488,7 @@ export async function runAgent(
 
   // 2. Build user message.
   const evidenceHint = evidenceMode
-    ? `\n\nThis is an EVIDENCE-BASED assessment. Score each dimension ONLY from the evidence the FTA provided — that means BOTH evidence_bundle (checklist answers + attachments) AND interview_transcript (Layla's chat interview). Treat an answer given in the chat exactly like a checklist answer. Any dimension with no evidence in EITHER source is 'D' (insufficient evidence). Use registry_data_slice solely to corroborate P1-1-2. Cite the specific answer/file you relied on.`
+    ? `\n\nThis is an EVIDENCE-BASED assessment. Score each item ONLY from the evidence the FTA provided — BOTH evidence_bundle (checklist answers + attachments) AND interview_transcript (the chat interview). Treat a chat answer exactly like a checklist answer. Any item with no evidence in EITHER source is 'D' (insufficient evidence).${isRegistryEvidence ? " Use registry_data_slice solely to corroborate P1-1-2." : ""} Cite the specific answer/file you relied on.`
     : "";
   const fileHint =
     options.uploadedFile != null && !evidenceMode
@@ -486,8 +500,21 @@ export async function runAgent(
     2,
   )}\n\nReturn ONLY a valid JSON object — no markdown, no prose.`;
 
-  // 3. Run the SDK agent
-  const ag = agents()[workflow];
+  // 3. Run the SDK agent. Registry evidence + all non-evidence runs use the
+  // pre-built agents; other playbook POAs in evidence mode get a fresh agent
+  // with the canon-generated evidence prompt.
+  const builtAgents = agents();
+  const ag =
+    evidenceMode && !isRegistryEvidence
+      ? new Agent({
+          name: spec.name,
+          instructions: buildEvidencePrompt(poa),
+          model: AZURE_OPENAI_DEPLOYMENT_NAME,
+          modelSettings: { temperature: 0.1 },
+        })
+      : builtAgents[workflow];
+  const parseSchema =
+    evidenceMode && !isRegistryEvidence ? EvidenceOutput : spec.schema;
   let raw = "";
   let parsed: Record<string, unknown> | null = null;
   let parseError: string | null = null;
@@ -509,7 +536,7 @@ export async function runAgent(
     const obj = JSON.parse(sliced);
 
     // Soft-validate with the schema; we don't fail hard — just record errors
-    const safe = spec.schema.safeParse(obj);
+    const safe = parseSchema.safeParse(obj);
     if (!safe.success) {
       // Still return the parsed object — schema mismatches are signal not failure
       parseError = `schema warnings: ${safe.error.issues.length} issues`;

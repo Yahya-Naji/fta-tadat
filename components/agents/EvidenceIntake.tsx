@@ -24,6 +24,7 @@ import {
   Wand2,
 } from "lucide-react";
 import { POA1_SAMPLE } from "@/lib/tadat/poa1-sample";
+import { POA2_SAMPLE } from "@/lib/tadat/poa2-sample";
 
 import { PersonaAvatar } from "@/components/PersonaAvatar";
 import { PERSONAS, type AgentId } from "@/lib/personas";
@@ -103,12 +104,16 @@ export function EvidenceIntake({ agentId, poa, onBundleChange }: EvidenceIntakeP
   }, [groups, poa, persona]);
 
   // Demo helper — fill the checklist from the bundled sample answers.
-  const sampleAvailable = groups.some((g) => POA1_SAMPLE[g.group_id]);
+  const sampleForPoa =
+    poa === 1 ? POA1_SAMPLE : poa === 2 ? POA2_SAMPLE : null;
+  const sampleAvailable =
+    !!sampleForPoa && groups.some((g) => sampleForPoa[g.group_id]);
   function applySample() {
+    if (!sampleForPoa) return;
     const nextA: AnswerMap = {};
     const nextE: EvidenceMap = {};
     for (const g of groups) {
-      const s = POA1_SAMPLE[g.group_id];
+      const s = sampleForPoa[g.group_id];
       if (!s) continue;
       g.questions.forEach((_, i) => {
         if (s.answers[i]) nextA[`${g.group_id}::q${i}`] = s.answers[i];

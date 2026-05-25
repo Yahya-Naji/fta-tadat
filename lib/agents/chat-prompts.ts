@@ -165,10 +165,12 @@ function extractScoreSummary(parsed: Record<string, unknown>): string {
     const detail = (i.detail as string) ?? "";
     if (detail) out.push(`    why: ${detail}`);
   }
-  const p11 = (parsed.p1_1_aggregate as string) ?? "—";
+  const p11 = parsed.p1_1_aggregate as string | undefined;
   const agg = (parsed.aggregate_score as string) ?? "—";
   out.push(
-    `- Rollup: P1-1 = ${p11} (M1, lowest of dims) → **POA = ${agg}** (lowest of indicators).`,
+    p11
+      ? `- Rollup: P1-1 = ${p11} (M1, lowest of dims) → **POA = ${agg}** (lowest of indicators).`
+      : `- Rollup: **POA = ${agg}** (M1, lowest of all dimensions).`,
   );
 
   const review: string[] = [];
